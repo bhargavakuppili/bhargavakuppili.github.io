@@ -30,7 +30,13 @@
         --body:'Barlow', system-ui, -apple-system, Segoe UI, sans-serif;
       }
       *{box-sizing:border-box}
-      html{scroll-behavior:smooth}
+      html{scroll-behavior:smooth; scrollbar-width:thin; scrollbar-color:#3b4f74 #05080e}
+      ::-webkit-scrollbar{width:10px; height:10px}
+      ::-webkit-scrollbar-track{background:#05080e}
+      ::-webkit-scrollbar-thumb{background:#3b4f74; border:2px solid #05080e; border-radius:6px}
+      ::-webkit-scrollbar-thumb:hover{background:var(--amber)}
+      ::-webkit-scrollbar-thumb:active{background:var(--amber-2)}
+      ::-webkit-scrollbar-corner{background:#05080e}
       body{
         margin:0;
         background:var(--bg);
