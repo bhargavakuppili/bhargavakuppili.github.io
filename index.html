@@ -46,6 +46,11 @@
       .scroll-rail.visible{opacity:1}
       .rail-track{position:absolute; left:0; top:0; width:3px; height:100%; background:rgba(28,39,57,.9)}
       .rail-fill{width:100%; height:100%; background:var(--amber); transform:scaleY(0); transform-origin:50% 0}
+      /* the Experience section's stretch of the rail line itself: positioned
+         over the part of the track the section occupies and filled top to
+         bottom as you scroll through the section — no separate bar */
+      .rail-seg{position:absolute; left:50%; transform:translateX(-50%); width:5px; background:rgba(246,184,29,.16); border-radius:2px; overflow:hidden}
+      .rail-seg-fill{width:100%; height:100%; background:linear-gradient(to bottom, var(--amber), var(--amber-2)); transform:scaleY(0); transform-origin:50% 0}
       .rail-labels{position:absolute; left:0; top:0; height:100%}
       .rail-label{
         position:absolute; left:15px; transform:translateY(-50%);
@@ -71,7 +76,7 @@
           color:var(--amber); white-space:nowrap;
         }
       }
-      @media (prefers-reduced-motion: reduce){ .scroll-rail{transition:none} .exp-progress{transition:none} }
+      @media (prefers-reduced-motion: reduce){ .scroll-rail{transition:none} }
       body{
         margin:0;
         background:var(--bg);
@@ -233,18 +238,6 @@
       h2{font-family:var(--display); font-weight:700; font-size:clamp(38px,5vw,52px); line-height:1; margin:0; letter-spacing:.01em}
       .sec-meta{font-family:var(--mono); font-size:13px; color:var(--muted-2); white-space:nowrap}
 
-      /* experience-only progress: slim vertical bar along the right side of
-         this section; fills top to bottom while scrolling through it and
-         fades out once you have scrolled down past the section */
-      #experience{position:relative}
-      .exp-progress{
-        position:absolute; top:6px; bottom:6px; right:-14px; width:3px;
-        background:var(--line); opacity:0; transition:opacity .45s ease;
-      }
-      .exp-progress.on{opacity:1}
-      .exp-progress-fill{width:100%; height:100%; background:linear-gradient(to bottom, var(--amber), var(--amber-2)); transform:scaleY(0); transform-origin:50% 0}
-      @media (max-width:640px){ .exp-progress{right:-11px} }
-
       /* timeline */
       .timeline{position:relative; margin-top:14px}
       .tl-item{display:grid; grid-template-columns:170px 44px 1fr; padding:30px 0 6px}
@@ -378,7 +371,7 @@
   </head>
   <body>
     <div class="scroll-rail" id="scrollRail" aria-hidden="true">
-      <div class="rail-track"><div class="rail-fill" id="railFill"></div></div>
+      <div class="rail-track"><div class="rail-fill" id="railFill"></div><div class="rail-seg" id="railSegExp" aria-hidden="true"><div class="rail-seg-fill" id="railSegExpFill"></div></div></div>
       <div class="rail-labels">
         <a class="rail-label" data-rail="about" href="#about" tabindex="-1">About</a>
         <a class="rail-label" data-rail="experience" href="#experience" tabindex="-1">Experience</a>
@@ -483,7 +476,6 @@
       <!-- EXPERIENCE -->
       <section class="block" id="experience">
         <div class="sec-head"><h2>Experience</h2><span class="sec-meta">2017 — present</span></div>
-        <div class="exp-progress" id="expProgress" aria-hidden="true"><div class="exp-progress-fill" id="expProgressFill"></div></div>
         <div class="timeline">
 
           <article class="tl-item">
@@ -1128,15 +1120,16 @@
       // Fills top-to-bottom with whole-page scroll; the label for the section in
       // view is highlighted (and shown on its own on small screens). The rail
       // fades in while scrolling and back out shortly after scrolling stops.
-      // The Experience-only bar is driven from the same handler: a slim
-      // vertical bar along the side of the section that fills top to bottom
-      // while the section scrolls through and fades out once you pass it.
+      // The stretch of the rail line that maps to the Experience section is
+      // driven from the same handler: it fills top to bottom as you scroll
+      // through that section — empty when the section first comes into view,
+      // full once you have scrolled past it. There is no separate bar.
       (function () {
         var rail = document.getElementById('scrollRail');
         var fill = document.getElementById('railFill');
         var currentEl = document.getElementById('railCurrent');
-        var expBar = document.getElementById('expProgress');
-        var expFill = document.getElementById('expProgressFill');
+        var segExp = document.getElementById('railSegExp');
+        var segExpFill = document.getElementById('railSegExpFill');
         if (!rail || !fill) return;
         var ids = ['about', 'experience', 'certifications', 'skills', 'contact'];
         var names = { about: 'About', experience: 'Experience', certifications: 'Certifications', skills: 'Skills', contact: 'Contact' };
@@ -1167,6 +1160,13 @@
             expTop = expSection.getBoundingClientRect().top + y;
             expHeight = expSection.offsetHeight;
           }
+          // place the Experience segment over the stretch of the rail track
+          // the section occupies, in the same document proportions the
+          // section labels are positioned with
+          if (segExp && docHeight > 0 && expHeight > 0) {
+            segExp.style.top = Math.min(Math.max((expTop / docHeight) * 100, 0), 100) + '%';
+            segExp.style.height = Math.min((expHeight / docHeight) * 100, 100) + '%';
+          }
         }
         var hideTimer = null;
         function poke() {
@@ -1189,17 +1189,12 @@
             labels[k].classList.toggle('active', k === current);
           });
           if (currentEl) currentEl.textContent = current ? names[current] : 'Top';
-          // experience-only bar: fills top to bottom as the section scrolls
-          // through; visible while the section is in view, faded out once
-          // its end has scrolled up past the middle of the viewport
-          if (expFill && expHeight > 0) {
+          // the Experience stretch of the rail line: fills top to bottom as
+          // the section scrolls through — 0 when its top first reaches the
+          // bottom of the viewport, 1 once its end has passed the top
+          if (segExpFill && expHeight > 0) {
             var ep = (y + vh - expTop) / (expHeight + vh);
-            expFill.style.transform = 'scaleY(' + Math.min(Math.max(ep, 0), 1) + ')';
-          }
-          if (expBar && expHeight > 0) {
-            var expInView = y + vh > expTop && y < expTop + expHeight;
-            var expPast = y + vh * 0.5 >= expTop + expHeight;
-            expBar.classList.toggle('on', expInView && !expPast);
+            segExpFill.style.transform = 'scaleY(' + Math.min(Math.max(ep, 0), 1) + ')';
           }
         }
         function onScroll() {
