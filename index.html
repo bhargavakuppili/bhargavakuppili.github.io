@@ -259,27 +259,37 @@
         transform:translate(-50%, -50%);
         pointer-events:none; z-index:3; opacity:0;
       }
-      /* ambient spill BEHIND the content: a physical-style falloff —
-         a hot core at the disc, then a long multi-stop fade whose
-         alpha steps shrink toward zero (roughly inverse-square), so
-         by the time the gradient ends there is nothing left to see:
-         no ring, no disc edge, no visible boundary anywhere. */
+      /* the sun's OWN glow only: a tight corona hugging the disc
+         (26px past its edge), NOT a halo spilling over the content —
+         the big faded circular spill that used to sit behind the
+         entries is gone entirely. It is also clipped at the disc's
+         centre — the timeline line — so no part of it reaches left
+         of the line: the date column stays completely dark. The
+         light that falls on the job entries comes only from the
+         right-side .tl-light overlay and the per-element proximity
+         brightening below. */
       .tl-sun::before{
-        content:""; position:absolute; inset:-330px; border-radius:50%; z-index:-1;
-        background:radial-gradient(circle, var(--g0) 0%, var(--g1) 16%, var(--g2) 32%, var(--g3) 50%, var(--g4) 70%, var(--g5) 88%, transparent 100%);
+        content:""; position:absolute; inset:-26px; border-radius:50%; z-index:-1;
+        background:radial-gradient(circle, var(--g0) 0%, var(--g1) 52%, transparent 78%);
+        clip-path:inset(0 0 0 50%);
         pointer-events:none;
       }
       /* light that actually FALLS ON the content: a full-timeline
          overlay ABOVE the entries, blended with screen so it adds
-         light to whatever it touches — text and dates under it get
-         brighter, the dark background only picks up a faint spill.
-         Same edgeless falloff as the spill behind: hot near-white
-         core at the sun's exact position (--sun-x / --sun-y, driven
-         by the scroll handler), warming to the phase colour, then a
-         long gradual fade to fully transparent. */
+         light to whatever it touches — the company names, roles and
+         bullets under it get brighter. Same edgeless falloff as
+         before on the right: hot near-white core at the sun's exact
+         position (--sun-x / --sun-y, driven by the scroll handler),
+         warming to the phase colour, then a long gradual fade to
+         fully transparent. The overlay is CLIPPED at the timeline
+         line itself (clip-path starts exactly at --sun-x, the
+         line's centre), so not a pixel of this light lands left of
+         the line — the date column and everything left of the line
+         stays completely dark. */
       .tl-light{
         position:absolute; inset:0; z-index:2; pointer-events:none;
         mix-blend-mode:screen;
+        clip-path:inset(0 0 0 var(--sun-x));
         background:radial-gradient(640px circle at var(--sun-x) var(--sun-y), var(--o0) 0%, var(--o1) 10%, var(--o2) 22%, var(--o3) 36%, var(--o4) 55%, var(--o5) 76%, transparent 100%);
       }
       .tl-sun-img{
@@ -314,13 +324,16 @@
          brightness below. */
       .tl-item.tl-lit .building-marker{border-color:var(--lit-marker-border); background:var(--lit-marker-bg); box-shadow:0 0 14px var(--lit-marker-shadow); color:#fff}
       /* proximity lighting on the words themselves: the scroll handler
-         sets --lit (0..~0.92) on every date, heading, role and bullet
-         from its real distance to the sun — an inverse-square-style
-         falloff — and this filter turns that into brightness, so text
-         right at the sun flares toward white-hot while text farther
-         away keeps its normal dim colour. No tint is painted behind
-         the text; the glyphs themselves are what get lit. */
-      .tl-date, .tl-body h3, .tl-role, .tl-body li{
+         sets --lit (0..~0.92) on every heading, role and bullet — all
+         on the RIGHT of the timeline line — from its real distance to
+         the sun — an inverse-square-style falloff — and this filter
+         turns that into brightness, so text right at the sun flares
+         toward white-hot while text farther away keeps its normal
+         dim colour. No tint is painted behind the text; the glyphs
+         themselves are what get lit. Dates are deliberately NOT in
+         this list and never receive --lit: they sit left of the line
+         and stay completely dark. */
+      .tl-body h3, .tl-role, .tl-body li{
         filter:brightness(calc(1 + var(--lit, 0) * .55)) saturate(calc(1 + var(--lit, 0) * .18));
       }
       .building-marker{transition:opacity .45s ease, transform .45s cubic-bezier(.22,.8,.3,1), border-color .3s ease, background .3s ease, box-shadow .3s ease, color .3s ease}
@@ -1304,9 +1317,11 @@
         if (!timeline || !section) return;
         var sun = document.getElementById('tlSun');
         var items = Array.prototype.slice.call(timeline.querySelectorAll('.tl-item'));
-        // every piece of text the sunlight can fall on: dates, company
-        // headings, role lines and bullets across all entries
-        var litTargets = Array.prototype.slice.call(timeline.querySelectorAll('.tl-date, .tl-body h3, .tl-role, .tl-body li'));
+        // every piece of text the sunlight can fall on: company
+        // headings, role lines and bullets across all entries — all
+        // on the RIGHT of the timeline line. Dates are excluded on
+        // purpose: they sit left of the line and must stay dark.
+        var litTargets = Array.prototype.slice.call(timeline.querySelectorAll('.tl-body h3, .tl-role, .tl-body li'));
         var ticking = false;
         // Day-cycle keyframes for the sun: sunrise (p=0) warm orange-gold,
         // midday (p=0.5) pure-white daylight, sunset (p=1) strong red.
@@ -1380,9 +1395,12 @@
           // Realistic light falloff, two layers sharing one curve whose
           // alpha steps shrink toward zero (roughly inverse-square), so
           // the light dies out long before any gradient boundary:
-          // --g* is the faint ambient spill behind the content, --o* is
-          // the screen-blended light that lands ON the content (hot
-          // near-white core warming to the phase colour at distance).
+          // --g* now drives ONLY the sun's own tight corona (clipped at
+          // the line, nothing spills left or over the content), --o* is
+          // the screen-blended light that lands ON the content to the
+          // RIGHT of the line only — .tl-light is clipped at --sun-x
+          // (hot near-white core warming to the phase colour at
+          // distance). Nothing lights anything left of the line.
           var ll = 0.55 + 0.45 * daylight;
           var hot = mixRGB(day.core, [255, 255, 255], 0.45);
           var warm = mixRGB(hot, day.glow, 0.5);
