@@ -239,7 +239,7 @@
          top to bottom in amber as you scroll through the Experience
          section — empty when the section first comes into view, full
          once you have scrolled past it. No extra bar is added. */
-      .timeline{position:relative; margin-top:14px; --tl-p:0; --sun-core:#ffedb0; --sun-mid:#ffb347; --sun-edge:#ff7b1c; --sun-glow-strong:rgba(255,140,40,.55); --sun-glow-mid:rgba(255,140,40,.28); --sun-glow-soft:rgba(255,140,40,.13); --sun-tint:rgba(255,140,40,.34); --sun-filter:brightness(.94) saturate(1.15) hue-rotate(-8deg) sepia(.22); --lit-wash-strong:rgba(255,140,40,.12); --lit-wash-soft:rgba(255,140,40,.04); --lit-marker-bg:rgba(255,140,40,.55); --lit-marker-border:#ffb347; --lit-marker-shadow:rgba(255,140,40,.85)}
+      .timeline{position:relative; margin-top:14px; --tl-p:0; --sun-core:#ffedb0; --sun-mid:#ffb347; --sun-edge:#ff7b1c; --sun-glow-strong:rgba(255,140,40,.55); --sun-glow-mid:rgba(255,140,40,.28); --sun-glow-soft:rgba(255,140,40,.13); --sun-tint:rgba(255,140,40,.34); --sun-filter:brightness(.94) saturate(1.15) hue-rotate(-8deg) sepia(.22); --lit-marker-bg:rgba(255,140,40,.55); --lit-marker-border:#ffb347; --lit-marker-shadow:rgba(255,140,40,.85)}
       .timeline::before{content:""; position:absolute; top:12px; bottom:12px; left:calc(170px + 22px); width:2px; margin-left:-1px; background:rgba(246,184,29,.16); z-index:0}
       .timeline::after{content:""; position:absolute; top:12px; bottom:12px; left:calc(170px + 22px); width:2px; margin-left:-1px; background:linear-gradient(to bottom, var(--amber), var(--amber-2)); transform:scaleY(var(--tl-p)); transform-origin:50% 0; z-index:0}
       /* the sun — a real NASA Solar Dynamics Observatory (SDO/AIA)
@@ -256,12 +256,17 @@
         position:absolute; left:calc(170px + 22px); top:12px;
         width:56px; height:56px; border-radius:50%;
         transform:translate(-50%, -50%);
-        box-shadow:0 0 22px 8px var(--sun-glow-strong), 0 0 58px 22px var(--sun-glow-mid), 0 0 120px 52px var(--sun-glow-soft);
         pointer-events:none; z-index:2; opacity:0;
       }
+      /* the sun's ONLY light: one circular radial glow centered on the
+         disc, brightest at the sun and dimming smoothly to nothing at
+         the edge of the circle — a single soft gradient, no box-shadow
+         rings, no second halo, no hard edge anywhere. This glow alone
+         lights whatever entry the sun is passing; there is no other
+         wash or pool of light in the section. */
       .tl-sun::before{
-        content:""; position:absolute; inset:-30px; border-radius:50%; z-index:-1;
-        background:radial-gradient(circle, var(--sun-glow-mid) 0%, var(--sun-glow-soft) 52%, transparent 72%);
+        content:""; position:absolute; inset:-160px; border-radius:50%; z-index:-1;
+        background:radial-gradient(circle, var(--sun-glow-strong) 0%, var(--sun-glow-mid) 30%, var(--sun-glow-soft) 58%, transparent 78%);
         pointer-events:none;
       }
       .tl-sun-img{
@@ -275,10 +280,9 @@
         pointer-events:none;
       }
       @media (max-width:700px){ .tl-sun{left:13px; width:46px; height:46px} }
-      /* the job entry at the fill point is lit by the sun: a faint warm
-         wash behind its text in the current daylight colour */
-      .tl-item{transition:background .45s ease}
-      .tl-item.tl-lit{background:linear-gradient(to right, var(--lit-wash-strong), var(--lit-wash-soft) 55%, transparent 82%)}
+      /* the job entry at the fill point gets NO background wash of its
+         own — it is lit only by the sun's single circular glow above.
+         The .tl-lit class now only kindles that entry's building marker. */
       .tl-item.tl-lit .building-marker{border-color:var(--lit-marker-border); background:var(--lit-marker-bg); box-shadow:0 0 14px var(--lit-marker-shadow); color:#fff}
       .building-marker{transition:opacity .45s ease, transform .45s cubic-bezier(.22,.8,.3,1), border-color .3s ease, background .3s ease, box-shadow .3s ease, color .3s ease}
       .tl-item{display:grid; grid-template-columns:170px 44px 1fr; padding:30px 0 6px; position:relative; z-index:1}
@@ -1266,7 +1270,7 @@
         // Colours are interpolated smoothly between stops.
         var DAY_STOPS = [
           { p: 0,   core: [255, 237, 176], mid: [255, 179, 71],  edge: [255, 123, 28],  glow: [255, 140, 40],  filt: [0.94, 1.15, -8, 0.22] },
-          { p: 0.5, core: [255, 255, 255], mid: [255, 255, 252], edge: [255, 255, 238], glow: [255, 255, 232], filt: [1.42, 0.52, 0, 0] },
+          { p: 0.5, core: [255, 255, 255], mid: [255, 255, 252], edge: [255, 255, 238], glow: [255, 255, 232], filt: [1.9, 0.16, 0, 0] },
           { p: 1,   core: [255, 176, 148], mid: [255, 52, 26],   edge: [204, 0, 0],     glow: [224, 18, 8],    filt: [0.84, 1.48, -28, 0.38] }
         ];
         function lerp(a, b, t) { return a + (b - a) * t; }
@@ -1326,8 +1330,6 @@
           timeline.style.setProperty('--sun-glow-strong', rgbaStr(day.glow, (0.42 + 0.22 * daylight).toFixed(3)));
           timeline.style.setProperty('--sun-glow-mid', rgbaStr(day.glow, (0.20 + 0.14 * daylight).toFixed(3)));
           timeline.style.setProperty('--sun-glow-soft', rgbaStr(day.glow, (0.09 + 0.07 * daylight).toFixed(3)));
-          timeline.style.setProperty('--lit-wash-strong', rgbaStr(day.glow, (0.08 + 0.05 * daylight).toFixed(3)));
-          timeline.style.setProperty('--lit-wash-soft', rgbaStr(day.glow, (0.025 + 0.02 * daylight).toFixed(3)));
           timeline.style.setProperty('--lit-marker-bg', rgbaStr(day.glow, 0.55));
           timeline.style.setProperty('--lit-marker-border', rgbStr(day.mid));
           timeline.style.setProperty('--lit-marker-shadow', rgbaStr(day.glow, 0.85));
