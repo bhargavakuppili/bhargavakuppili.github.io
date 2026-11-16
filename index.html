@@ -242,6 +242,39 @@
       .timeline{position:relative; margin-top:14px; --tl-p:0}
       .timeline::before{content:""; position:absolute; top:12px; bottom:12px; left:calc(170px + 22px); width:2px; margin-left:-1px; background:rgba(246,184,29,.16); z-index:0}
       .timeline::after{content:""; position:absolute; top:12px; bottom:12px; left:calc(170px + 22px); width:2px; margin-left:-1px; background:linear-gradient(to bottom, var(--amber), var(--amber-2)); transform:scaleY(var(--tl-p)); transform-origin:50% 0; z-index:0}
+      /* crimson sunlight glow — a soft pool of crimson light centered on the
+         timeline line at the fill point; it travels down with the fill,
+         shedding light under the job entry currently being read. It sits
+         behind the entries (z-index 0; items are z-index 1) and its
+         position/opacity are driven by the timeline scroll handler. */
+      .tl-glow{
+        position:absolute; left:calc(170px + 22px); top:12px;
+        width:min(720px, 92vw); height:460px;
+        transform:translate(-14%, -50%);
+        background:radial-gradient(ellipse 58% 50% at 20% 50%, rgba(220,20,60,.32) 0%, rgba(220,20,60,.15) 40%, rgba(150,10,40,.06) 64%, transparent 80%);
+        pointer-events:none; z-index:0; opacity:0;
+      }
+      @media (max-width:700px){ .tl-glow{left:13px} }
+      /* the crimson sun — a small glowing crimson disc sitting on the
+         timeline line exactly at the fill point; it scrolls down the line
+         with the fill, always marking the current fill position, and fades
+         with the glow as the section is scrolled past. Position and opacity
+         are driven by the same timeline scroll handler. */
+      .tl-sun{
+        position:absolute; left:calc(170px + 22px); top:12px;
+        width:17px; height:17px; border-radius:50%;
+        transform:translate(-50%, -50%);
+        background:radial-gradient(circle, #ffe3e7 0%, #ff8296 26%, #f43a5c 52%, #dc143c 72%, rgba(220,20,60,.5) 88%, rgba(220,20,60,0) 100%);
+        box-shadow:0 0 16px 5px rgba(220,20,60,.55), 0 0 44px 16px rgba(220,20,60,.26);
+        pointer-events:none; z-index:2; opacity:0;
+      }
+      @media (max-width:700px){ .tl-sun{left:13px} }
+      /* the job entry at the fill point is lit by the glow: a faint crimson
+         wash behind its text and its diamond marker kindled crimson */
+      .tl-item{transition:background .45s ease}
+      .tl-item.tl-lit{background:linear-gradient(to right, rgba(220,20,60,.09), rgba(220,20,60,.028) 55%, transparent 82%)}
+      .tl-item.tl-lit .diamond{border-color:#ff5b74; background:rgba(220,20,60,.55); box-shadow:0 0 14px rgba(220,20,60,.85)}
+      .diamond{transition:border-color .3s ease, background .3s ease, box-shadow .3s ease}
       .tl-item{display:grid; grid-template-columns:170px 44px 1fr; padding:30px 0 6px; position:relative; z-index:1}
       .tl-date{font-family:var(--mono); font-size:13px; color:var(--muted-2); text-align:right; padding-top:8px; line-height:1.6}
       .tl-rail{position:relative; display:flex; justify-content:center}
@@ -478,6 +511,8 @@
       <section class="block" id="experience">
         <div class="sec-head"><h2>Experience</h2><span class="sec-meta">2017 — present</span></div>
         <div class="timeline">
+          <div class="tl-glow" id="tlGlow" aria-hidden="true"></div>
+          <div class="tl-sun" id="tlSun" aria-hidden="true"></div>
 
           <article class="tl-item">
             <div class="tl-date">Jun 2025 to now</div>
@@ -1198,11 +1233,20 @@
         var timeline = document.querySelector('.timeline');
         var section = document.getElementById('experience');
         if (!timeline || !section) return;
-        var secTop = 0, secHeight = 0, ticking = false;
+        var glow = document.getElementById('tlGlow');
+        var sun = document.getElementById('tlSun');
+        var items = Array.prototype.slice.call(timeline.querySelectorAll('.tl-item'));
+        var secTop = 0, secHeight = 0, tlTop = 0, tlHeight = 0, itemRanges = [], ticking = false;
         function measure() {
           var y = window.scrollY || window.pageYOffset || 0;
           secTop = section.getBoundingClientRect().top + y;
           secHeight = section.offsetHeight;
+          tlTop = timeline.getBoundingClientRect().top + y;
+          tlHeight = timeline.offsetHeight;
+          itemRanges = items.map(function (el) {
+            var t = el.getBoundingClientRect().top + y;
+            return { el: el, top: t, bottom: t + el.offsetHeight };
+          });
         }
         function update() {
           ticking = false;
@@ -1211,6 +1255,28 @@
           var p = secHeight > 0 ? (y + vh - secTop) / (secHeight + vh) : 0;
           p = Math.min(Math.max(p, 0), 1);
           timeline.style.setProperty('--tl-p', p.toFixed(4));
+          // Crimson sunlight: the glow rides the fill point of the timeline
+          // line (the ::after spans top:12 to bottom:12 of the timeline, so
+          // the fill tip sits at 12 + p * (height - 24) in timeline coords).
+          // It fades in just after the fill starts and out as the section
+          // is scrolled past, and the entry under the tip is lit.
+          if (glow) {
+            var fillY = 12 + p * Math.max(tlHeight - 24, 0);
+            glow.style.top = fillY.toFixed(1) + 'px';
+            var fadeIn = Math.min(Math.max((p - 0.005) / 0.05, 0), 1);
+            var fadeOut = Math.min(Math.max((1 - p) / 0.05, 0), 1);
+            var glowO = Math.min(fadeIn, fadeOut);
+            glow.style.opacity = glowO.toFixed(3);
+            // The crimson sun rides the same fill point, centered on the line.
+            if (sun) {
+              sun.style.top = fillY.toFixed(1) + 'px';
+              sun.style.opacity = glowO.toFixed(3);
+            }
+            var docY = tlTop + fillY;
+            itemRanges.forEach(function (r) {
+              r.el.classList.toggle('tl-lit', docY >= r.top && docY < r.bottom);
+            });
+          }
         }
         function onScroll() {
           if (!ticking) { ticking = true; requestAnimationFrame(update); }
