@@ -299,20 +299,20 @@
       .tl-item{display:grid; grid-template-columns:170px 44px 1fr; padding:30px 0 6px; position:relative; z-index:1}
       .tl-date{font-family:var(--mono); font-size:13px; color:var(--muted-2); text-align:right; padding-top:8px; line-height:1.6}
       .tl-rail{position:relative; display:flex; justify-content:center}
-      /* small corporate building icon sitting on the timeline line at each
-         job entry — hidden until the sun has travelled past its point on
-         the line, then it appears (and stays tied to the fill passing it) */
+      /* small corporate building icon at the very beginning of each
+         company name — hidden until the sun has travelled past that
+         heading, then it appears (and stays tied to the fill passing it) */
       .building-marker{
-        width:28px; height:28px; margin-top:4px; position:relative; z-index:1; flex:none;
-        display:flex; align-items:center; justify-content:center;
+        width:26px; height:26px; position:relative; z-index:1; flex:none;
+        display:inline-flex; align-items:center; justify-content:center;
         background:#0d1524; border:1px solid rgba(246,184,29,.55); border-radius:7px;
         color:var(--amber);
-        opacity:0; transform:scale(.45) translateY(8px);
+        opacity:0; transform:scale(.45) translateY(4px);
       }
       .building-marker svg{width:16px; height:16px; display:block}
       .tl-item.tl-passed .building-marker{opacity:1; transform:scale(1) translateY(0); box-shadow:0 0 12px rgba(246,184,29,.22)}
       @media (prefers-reduced-motion: reduce){ .building-marker{transition:none} }
-      .tl-body h3{font-family:var(--display); font-weight:700; font-size:27px; margin:0; line-height:1.15}
+      .tl-body h3{font-family:var(--display); font-weight:700; font-size:27px; margin:0; line-height:1.15; display:flex; align-items:center; gap:10px}
       .tl-role{color:var(--amber); font-weight:600; font-size:16.5px; margin:3px 0 14px}
       .tl-body ul{list-style:none; margin:0; padding:0}
       .tl-body li{position:relative; padding:5px 0 5px 20px; color:#b9c6da; font-size:16.5px; line-height:1.55; max-width:68ch}
@@ -324,7 +324,7 @@
         .tl-date{grid-column:2; text-align:left; order:0; padding:0 0 4px 0}
         .tl-rail{grid-row:1 / span 2; order:-1}
         .tl-body{grid-column:2}
-        .building-marker{width:24px; height:24px; border-radius:6px}
+        .building-marker{width:22px; height:22px; border-radius:6px}
         .building-marker svg{width:14px; height:14px}
       }
 
@@ -551,9 +551,9 @@
 
           <article class="tl-item">
             <div class="tl-date">Jun 2025 to now</div>
-            <div class="tl-rail"><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span></div>
+            <div class="tl-rail" aria-hidden="true"></div>
             <div class="tl-body">
-              <h3>Compest Solutions Inc.</h3>
+              <h3><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span>Compest Solutions Inc.</h3>
               <p class="tl-role">Cloud Security Lead / Security Operations Lead</p>
               <ul>
                 <li>Lead a <strong>20-person SOC / DevOps / SRE organization</strong> — grown from 4 — securing a <strong>PCI DSS-compliant cloud payment platform</strong>.</li>
@@ -574,9 +574,9 @@
 
           <article class="tl-item">
             <div class="tl-date">Sep 2023 to May 2025</div>
-            <div class="tl-rail"><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span></div>
+            <div class="tl-rail" aria-hidden="true"></div>
             <div class="tl-body">
-              <h3>WaveStrong Inc.</h3>
+              <h3><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span>WaveStrong Inc.</h3>
               <p class="tl-role">Senior Cybersecurity Engineer</p>
               <ul>
                 <li>Advised <strong>multiple client security organizations</strong> on incident response — threat analysis and investigation reporting that shortened time to containment.</li>
@@ -591,9 +591,9 @@
 
           <article class="tl-item">
             <div class="tl-date">Oct 2023 to Sep 2024</div>
-            <div class="tl-rail"><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span></div>
+            <div class="tl-rail" aria-hidden="true"></div>
             <div class="tl-body">
-              <h3>Merced College</h3>
+              <h3><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span>Merced College</h3>
               <p class="tl-role">Adjunct Professor, Computer Technology Information Systems</p>
               <ul>
                 <li><strong>Designed and taught network security curriculum</strong> for associate degree programs, preparing students for entry-level cybersecurity roles — alongside industry security work.</li>
@@ -603,9 +603,9 @@
 
           <article class="tl-item">
             <div class="tl-date">Jul 2021 to Jan 2022</div>
-            <div class="tl-rail"><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span></div>
+            <div class="tl-rail" aria-hidden="true"></div>
             <div class="tl-body">
-              <h3>Mindtree</h3>
+              <h3><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span>Mindtree</h3>
               <p class="tl-role">Malware Analyst / Threat Analyst</p>
               <ul>
                 <li>Helped contain <strong>95% of Windows infection outbreaks</strong> by validating scan results against <strong>100+ malware family signatures</strong> and driving remediation to closure.</li>
@@ -616,9 +616,9 @@
 
           <article class="tl-item">
             <div class="tl-date">Dec 2020 to Jul 2021</div>
-            <div class="tl-rail"><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span></div>
+            <div class="tl-rail" aria-hidden="true"></div>
             <div class="tl-body">
-              <h3>Deloitte</h3>
+              <h3><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span>Deloitte</h3>
               <p class="tl-role">SOC Lead, Cyber Risk Fusion Center</p>
               <ul>
                 <li>Led <strong>shift-based SOC operations and a rotating analyst team</strong> across file, email, and cloud-based threat detection and response.</li>
@@ -631,9 +631,9 @@
 
           <article class="tl-item">
             <div class="tl-date">Feb 2017 to Dec 2020</div>
-            <div class="tl-rail"><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span></div>
+            <div class="tl-rail" aria-hidden="true"></div>
             <div class="tl-body">
-              <h3>Tata Consultancy Services</h3>
+              <h3><span class="building-marker" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span>Tata Consultancy Services</h3>
               <p class="tl-role">Security Operations Center Analyst</p>
               <ul>
                 <li>Increased detection accuracy by <strong>engineering and fine-tuning SIEM correlation rules</strong> and anomaly detection use cases.</li>
@@ -1247,7 +1247,7 @@
           poke();
           if (!ticking) { ticking = true; requestAnimationFrame(update); }
         }
-        function onResize() { measure(); update(); }
+        function onResize() { update(); }
         window.addEventListener('scroll', onScroll, { passive: true });
         window.addEventListener('resize', onResize, { passive: true });
         window.addEventListener('orientationchange', onResize, { passive: true });
@@ -1258,12 +1258,18 @@
       })();
 
       // ---- Experience timeline line: the timeline's own line is the progress bar --
-      // The vertical line beside the job entries (through the building markers)
-      // fills top to bottom in amber as you scroll through the Experience
-      // section — 0 when the section first comes into view (its top reaches
-      // the bottom of the viewport), 1 once you have scrolled past it (its
-      // bottom has passed the top of the viewport). Driven via the --tl-p
-      // custom property consumed by .timeline::after; no extra bar element.
+      // The vertical line beside the job entries fills top to bottom in
+      // amber as you scroll through the Experience section. Progress is
+      // anchored to the middle of the viewport crossing the timeline
+      // itself: 0 while the top of the line is still below that reading
+      // point (so the sun sits waiting at the very beginning of the line
+      // and is seen there the moment the line comes into view), and 1
+      // once the end of the line has crossed it (the sun finishes at the
+      // very end of the line). Positions are measured live from
+      // getBoundingClientRect() on every update, so no stale offset from
+      // fonts, images or layout shifts can push the sun's start down the
+      // line. Driven via the --tl-p custom property consumed by
+      // .timeline::after; no extra bar element.
       (function () {
         var timeline = document.querySelector('.timeline');
         var section = document.getElementById('experience');
@@ -1271,18 +1277,7 @@
         var glow = document.getElementById('tlGlow');
         var sun = document.getElementById('tlSun');
         var items = Array.prototype.slice.call(timeline.querySelectorAll('.tl-item'));
-        var secTop = 0, secHeight = 0, tlTop = 0, tlHeight = 0, itemRanges = [], ticking = false;
-        function measure() {
-          var y = window.scrollY || window.pageYOffset || 0;
-          secTop = section.getBoundingClientRect().top + y;
-          secHeight = section.offsetHeight;
-          tlTop = timeline.getBoundingClientRect().top + y;
-          tlHeight = timeline.offsetHeight;
-          itemRanges = items.map(function (el) {
-            var t = el.getBoundingClientRect().top + y;
-            return { el: el, top: t, bottom: t + el.offsetHeight };
-          });
-        }
+        var ticking = false;
         // Day-cycle keyframes for the sun: sunrise (p=0) warm orange-gold,
         // midday (p=0.5) pure-white daylight, sunset (p=1) strong red.
         // Colours are interpolated smoothly between stops.
@@ -1311,14 +1306,25 @@
         }
         function update() {
           ticking = false;
-          var y = window.scrollY || window.pageYOffset || 0;
           var vh = window.innerHeight || 0;
-          // Progress is anchored to the timeline line itself (not the wider
-          // section) so the fill — and the sun riding its tip — starts at
-          // the very beginning of the line (p=0, top:12) when the line's top
-          // first enters the viewport, and travels all the way through to
-          // the very end of the line (p=1, bottom:12) as its bottom leaves.
-          var p = tlHeight > 0 ? (y + vh - tlTop) / (tlHeight + vh) : 0;
+          // Live geometry, measured fresh on every update: the timeline's
+          // position in the viewport right now. (The previous version
+          // cached the line's document offset at load and anchored
+          // progress to the viewport's bottom edge over a
+          // line-height-plus-viewport distance — by the time the line was
+          // actually on screen the fill, and the sun on its tip, had
+          // already travelled hundreds of pixels down the line, so the
+          // sun first appeared around the midpoint of the first entry.)
+          var tlRect = timeline.getBoundingClientRect();
+          var tlHeight = tlRect.height;
+          // The reading point is the middle of the viewport. The sun
+          // rises at the very start of the line: p stays 0 while the top
+          // of the line is below the reading point, so the sun is sitting
+          // at the top of the line as the Experience section comes into
+          // view. It then travels the whole line, reaching the very end
+          // (p=1) exactly when the end of the line crosses the reading
+          // point, and stays there as the section scrolls away.
+          var p = tlHeight > 0 ? (vh * 0.5 - tlRect.top) / tlHeight : 0;
           p = Math.min(Math.max(p, 0), 1);
           timeline.style.setProperty('--tl-p', p.toFixed(4));
           // Sunlight follows a full day as the fill travels: the sun rises
@@ -1364,25 +1370,28 @@
               var sunScale = 0.92 + 0.16 * daylight;
               sun.style.transform = 'translate(-50%, -50%) scale(' + sunScale.toFixed(3) + ')';
             }
-            var docY = tlTop + fillY;
-            itemRanges.forEach(function (r) {
-              r.el.classList.toggle('tl-lit', docY >= r.top && docY < r.bottom);
-              // Building marker sits ~44px below the item's top (padding +
-              // marker centre); it shows up once the sun has travelled past it.
-              r.el.classList.toggle('tl-passed', docY >= r.top + 44);
+            // The sun's viewport position, compared against each entry's
+            // live viewport position: the entry under the sun is lit, and
+            // each job's building icon (at the start of its company name,
+            // ~44px below the entry's top — padding + heading centre)
+            // shows up once the sun has travelled past it.
+            var sunViewY = tlRect.top + fillY;
+            items.forEach(function (el) {
+              var r = el.getBoundingClientRect();
+              el.classList.toggle('tl-lit', sunViewY >= r.top && sunViewY < r.bottom);
+              el.classList.toggle('tl-passed', sunViewY >= r.top + 44);
             });
           }
         }
         function onScroll() {
           if (!ticking) { ticking = true; requestAnimationFrame(update); }
         }
-        function onResize() { measure(); update(); }
+        function onResize() { update(); }
         window.addEventListener('scroll', onScroll, { passive: true });
         window.addEventListener('resize', onResize, { passive: true });
         window.addEventListener('orientationchange', onResize, { passive: true });
         window.addEventListener('load', onResize);
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize);
-        measure();
         update();
       })();
 
