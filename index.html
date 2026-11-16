@@ -71,7 +71,7 @@
           color:var(--amber); white-space:nowrap;
         }
       }
-      @media (prefers-reduced-motion: reduce){ .scroll-rail{transition:none} }
+      @media (prefers-reduced-motion: reduce){ .scroll-rail{transition:none} .exp-progress{transition:none} }
       body{
         margin:0;
         background:var(--bg);
@@ -233,10 +233,17 @@
       h2{font-family:var(--display); font-weight:700; font-size:clamp(38px,5vw,52px); line-height:1; margin:0; letter-spacing:.01em}
       .sec-meta{font-family:var(--mono); font-size:13px; color:var(--muted-2); white-space:nowrap}
 
-      /* experience-only progress: fills while scrolling through this section;
-         always visible (unlike the left rail) */
-      .exp-progress{height:3px; background:var(--line); margin-top:22px}
-      .exp-progress-fill{height:100%; background:linear-gradient(to right, var(--amber), var(--amber-2)); transform:scaleX(0); transform-origin:0 50%}
+      /* experience-only progress: slim vertical bar along the right side of
+         this section; fills top to bottom while scrolling through it and
+         fades out once you have scrolled down past the section */
+      #experience{position:relative}
+      .exp-progress{
+        position:absolute; top:6px; bottom:6px; right:-14px; width:3px;
+        background:var(--line); opacity:0; transition:opacity .45s ease;
+      }
+      .exp-progress.on{opacity:1}
+      .exp-progress-fill{width:100%; height:100%; background:linear-gradient(to bottom, var(--amber), var(--amber-2)); transform:scaleY(0); transform-origin:50% 0}
+      @media (max-width:640px){ .exp-progress{right:-11px} }
 
       /* timeline */
       .timeline{position:relative; margin-top:14px}
@@ -476,7 +483,7 @@
       <!-- EXPERIENCE -->
       <section class="block" id="experience">
         <div class="sec-head"><h2>Experience</h2><span class="sec-meta">2017 — present</span></div>
-        <div class="exp-progress" aria-hidden="true"><div class="exp-progress-fill" id="expProgressFill"></div></div>
+        <div class="exp-progress" id="expProgress" aria-hidden="true"><div class="exp-progress-fill" id="expProgressFill"></div></div>
         <div class="timeline">
 
           <article class="tl-item">
@@ -1121,12 +1128,14 @@
       // Fills top-to-bottom with whole-page scroll; the label for the section in
       // view is highlighted (and shown on its own on small screens). The rail
       // fades in while scrolling and back out shortly after scrolling stops.
-      // The Experience-only bar is driven from the same handler but its element
-      // lives in the section and stays always visible.
+      // The Experience-only bar is driven from the same handler: a slim
+      // vertical bar along the side of the section that fills top to bottom
+      // while the section scrolls through and fades out once you pass it.
       (function () {
         var rail = document.getElementById('scrollRail');
         var fill = document.getElementById('railFill');
         var currentEl = document.getElementById('railCurrent');
+        var expBar = document.getElementById('expProgress');
         var expFill = document.getElementById('expProgressFill');
         if (!rail || !fill) return;
         var ids = ['about', 'experience', 'certifications', 'skills', 'contact'];
@@ -1180,10 +1189,17 @@
             labels[k].classList.toggle('active', k === current);
           });
           if (currentEl) currentEl.textContent = current ? names[current] : 'Top';
-          // experience-only bar: empty as the section enters view, full once past it
+          // experience-only bar: fills top to bottom as the section scrolls
+          // through; visible while the section is in view, faded out once
+          // its end has scrolled up past the middle of the viewport
           if (expFill && expHeight > 0) {
             var ep = (y + vh - expTop) / (expHeight + vh);
-            expFill.style.transform = 'scaleX(' + Math.min(Math.max(ep, 0), 1) + ')';
+            expFill.style.transform = 'scaleY(' + Math.min(Math.max(ep, 0), 1) + ')';
+          }
+          if (expBar && expHeight > 0) {
+            var expInView = y + vh > expTop && y < expTop + expHeight;
+            var expPast = y + vh * 0.5 >= expTop + expHeight;
+            expBar.classList.toggle('on', expInView && !expPast);
           }
         }
         function onScroll() {
