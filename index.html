@@ -46,11 +46,6 @@
       .scroll-rail.visible{opacity:1}
       .rail-track{position:absolute; left:0; top:0; width:3px; height:100%; background:rgba(28,39,57,.9)}
       .rail-fill{width:100%; height:100%; background:var(--amber); transform:scaleY(0); transform-origin:50% 0}
-      /* the Experience section's stretch of the rail line itself: positioned
-         over the part of the track the section occupies and filled top to
-         bottom as you scroll through the section — no separate bar */
-      .rail-seg{position:absolute; left:50%; transform:translateX(-50%); width:5px; background:rgba(246,184,29,.16); border-radius:2px; overflow:hidden}
-      .rail-seg-fill{width:100%; height:100%; background:linear-gradient(to bottom, var(--amber), var(--amber-2)); transform:scaleY(0); transform-origin:50% 0}
       .rail-labels{position:absolute; left:0; top:0; height:100%}
       .rail-label{
         position:absolute; left:15px; transform:translateY(-50%);
@@ -238,13 +233,18 @@
       h2{font-family:var(--display); font-weight:700; font-size:clamp(38px,5vw,52px); line-height:1; margin:0; letter-spacing:.01em}
       .sec-meta{font-family:var(--mono); font-size:13px; color:var(--muted-2); white-space:nowrap}
 
-      /* timeline */
-      .timeline{position:relative; margin-top:14px}
-      .tl-item{display:grid; grid-template-columns:170px 44px 1fr; padding:30px 0 6px}
+      /* timeline — its own vertical line IS the Experience progress bar:
+         a dim track runs down the left side of the timeline beside the job
+         entries (through the diamond markers), and that same line fills
+         top to bottom in amber as you scroll through the Experience
+         section — empty when the section first comes into view, full
+         once you have scrolled past it. No extra bar is added. */
+      .timeline{position:relative; margin-top:14px; --tl-p:0}
+      .timeline::before{content:""; position:absolute; top:12px; bottom:12px; left:calc(170px + 22px); width:2px; margin-left:-1px; background:rgba(246,184,29,.16); z-index:0}
+      .timeline::after{content:""; position:absolute; top:12px; bottom:12px; left:calc(170px + 22px); width:2px; margin-left:-1px; background:linear-gradient(to bottom, var(--amber), var(--amber-2)); transform:scaleY(var(--tl-p)); transform-origin:50% 0; z-index:0}
+      .tl-item{display:grid; grid-template-columns:170px 44px 1fr; padding:30px 0 6px; position:relative; z-index:1}
       .tl-date{font-family:var(--mono); font-size:13px; color:var(--muted-2); text-align:right; padding-top:8px; line-height:1.6}
       .tl-rail{position:relative; display:flex; justify-content:center}
-      .tl-rail::before{content:""; position:absolute; top:0; bottom:-30px; width:1px; background:linear-gradient(to bottom, var(--amber), #2b4a7a)}
-      .tl-item:last-child .tl-rail::before{bottom:auto; height:26px}
       .diamond{width:11px; height:11px; background:var(--bg); border:2px solid var(--amber); transform:rotate(45deg); margin-top:10px; position:relative; z-index:1; flex:none}
       .tl-body h3{font-family:var(--display); font-weight:700; font-size:27px; margin:0; line-height:1.15}
       .tl-role{color:var(--amber); font-weight:600; font-size:16.5px; margin:3px 0 14px}
@@ -253,6 +253,7 @@
       .tl-body li::before{content:"–"; position:absolute; left:0; color:var(--cyan)}
       .tl-body li strong{color:#fff; font-weight:600}
       @media (max-width:700px){
+        .timeline::before, .timeline::after{left:13px}
         .tl-item{grid-template-columns:26px 1fr; padding-top:26px}
         .tl-date{grid-column:2; text-align:left; order:0; padding:0 0 4px 0}
         .tl-rail{grid-row:1 / span 2; order:-1}
@@ -371,7 +372,7 @@
   </head>
   <body>
     <div class="scroll-rail" id="scrollRail" aria-hidden="true">
-      <div class="rail-track"><div class="rail-fill" id="railFill"></div><div class="rail-seg" id="railSegExp" aria-hidden="true"><div class="rail-seg-fill" id="railSegExpFill"></div></div></div>
+      <div class="rail-track"><div class="rail-fill" id="railFill"></div></div>
       <div class="rail-labels">
         <a class="rail-label" data-rail="about" href="#about" tabindex="-1">About</a>
         <a class="rail-label" data-rail="experience" href="#experience" tabindex="-1">Experience</a>
@@ -1120,16 +1121,10 @@
       // Fills top-to-bottom with whole-page scroll; the label for the section in
       // view is highlighted (and shown on its own on small screens). The rail
       // fades in while scrolling and back out shortly after scrolling stops.
-      // The stretch of the rail line that maps to the Experience section is
-      // driven from the same handler: it fills top to bottom as you scroll
-      // through that section — empty when the section first comes into view,
-      // full once you have scrolled past it. There is no separate bar.
       (function () {
         var rail = document.getElementById('scrollRail');
         var fill = document.getElementById('railFill');
         var currentEl = document.getElementById('railCurrent');
-        var segExp = document.getElementById('railSegExp');
-        var segExpFill = document.getElementById('railSegExpFill');
         if (!rail || !fill) return;
         var ids = ['about', 'experience', 'certifications', 'skills', 'contact'];
         var names = { about: 'About', experience: 'Experience', certifications: 'Certifications', skills: 'Skills', contact: 'Contact' };
@@ -1137,8 +1132,7 @@
         rail.querySelectorAll('.rail-label').forEach(function (a) {
           labels[a.getAttribute('data-rail')] = a;
         });
-        var expSection = document.getElementById('experience');
-        var sections = [], docHeight = 0, expTop = 0, expHeight = 0;
+        var sections = [], docHeight = 0;
         function measure() {
           var y = window.scrollY || window.pageYOffset || 0;
           docHeight = Math.max(
@@ -1156,17 +1150,6 @@
               label.style.top = pct + '%';
             }
           });
-          if (expSection) {
-            expTop = expSection.getBoundingClientRect().top + y;
-            expHeight = expSection.offsetHeight;
-          }
-          // place the Experience segment over the stretch of the rail track
-          // the section occupies, in the same document proportions the
-          // section labels are positioned with
-          if (segExp && docHeight > 0 && expHeight > 0) {
-            segExp.style.top = Math.min(Math.max((expTop / docHeight) * 100, 0), 100) + '%';
-            segExp.style.height = Math.min((expHeight / docHeight) * 100, 100) + '%';
-          }
         }
         var hideTimer = null;
         function poke() {
@@ -1189,16 +1172,47 @@
             labels[k].classList.toggle('active', k === current);
           });
           if (currentEl) currentEl.textContent = current ? names[current] : 'Top';
-          // the Experience stretch of the rail line: fills top to bottom as
-          // the section scrolls through — 0 when its top first reaches the
-          // bottom of the viewport, 1 once its end has passed the top
-          if (segExpFill && expHeight > 0) {
-            var ep = (y + vh - expTop) / (expHeight + vh);
-            segExpFill.style.transform = 'scaleY(' + Math.min(Math.max(ep, 0), 1) + ')';
-          }
         }
         function onScroll() {
           poke();
+          if (!ticking) { ticking = true; requestAnimationFrame(update); }
+        }
+        function onResize() { measure(); update(); }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onResize, { passive: true });
+        window.addEventListener('orientationchange', onResize, { passive: true });
+        window.addEventListener('load', onResize);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize);
+        measure();
+        update();
+      })();
+
+      // ---- Experience timeline line: the timeline's own line is the progress bar --
+      // The vertical line beside the job entries (through the diamond markers)
+      // fills top to bottom in amber as you scroll through the Experience
+      // section — 0 when the section first comes into view (its top reaches
+      // the bottom of the viewport), 1 once you have scrolled past it (its
+      // bottom has passed the top of the viewport). Driven via the --tl-p
+      // custom property consumed by .timeline::after; no extra bar element.
+      (function () {
+        var timeline = document.querySelector('.timeline');
+        var section = document.getElementById('experience');
+        if (!timeline || !section) return;
+        var secTop = 0, secHeight = 0, ticking = false;
+        function measure() {
+          var y = window.scrollY || window.pageYOffset || 0;
+          secTop = section.getBoundingClientRect().top + y;
+          secHeight = section.offsetHeight;
+        }
+        function update() {
+          ticking = false;
+          var y = window.scrollY || window.pageYOffset || 0;
+          var vh = window.innerHeight || 0;
+          var p = secHeight > 0 ? (y + vh - secTop) / (secHeight + vh) : 0;
+          p = Math.min(Math.max(p, 0), 1);
+          timeline.style.setProperty('--tl-p', p.toFixed(4));
+        }
+        function onScroll() {
           if (!ticking) { ticking = true; requestAnimationFrame(update); }
         }
         function onResize() { measure(); update(); }
