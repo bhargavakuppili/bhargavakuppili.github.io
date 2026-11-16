@@ -37,12 +37,41 @@
       ::-webkit-scrollbar-thumb:hover{background:var(--amber)}
       ::-webkit-scrollbar-thumb:active{background:var(--amber-2)}
       ::-webkit-scrollbar-corner{background:#05080e}
-      /* scroll progress — fixed at the very top, fills with scroll position */
-      .scroll-progress{
-        position:fixed; top:0; left:0; width:100%; height:3px;
-        background:var(--amber); transform:scaleX(0); transform-origin:0 50%;
-        z-index:100; pointer-events:none;
+      /* scroll rail — slim vertical progress bar fixed on the left edge, with
+         section labels beside it; fades in while scrolling, out after it stops */
+      .scroll-rail{
+        position:fixed; left:0; top:0; height:100vh; height:100dvh;
+        z-index:90; pointer-events:none; opacity:0; transition:opacity .45s ease;
       }
+      .scroll-rail.visible{opacity:1}
+      .rail-track{position:absolute; left:0; top:0; width:3px; height:100%; background:rgba(28,39,57,.9)}
+      .rail-fill{width:100%; height:100%; background:var(--amber); transform:scaleY(0); transform-origin:50% 0}
+      .rail-labels{position:absolute; left:0; top:0; height:100%}
+      .rail-label{
+        position:absolute; left:15px; transform:translateY(-50%);
+        font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase;
+        color:var(--muted-2); text-decoration:none; white-space:nowrap; padding:6px 4px;
+        transition:color .25s ease, font-size .25s ease;
+      }
+      .rail-label::before{
+        content:""; position:absolute; left:-15px; top:50%; width:8px; height:1px;
+        background:var(--line); transform:translateY(-50%);
+      }
+      .scroll-rail.visible .rail-label{pointer-events:auto}
+      .rail-label:hover{color:var(--text)}
+      .rail-label.active{color:var(--amber); font-weight:700; font-size:13px}
+      .rail-label.active::before{background:var(--amber); width:11px; left:-18px}
+      .rail-current{display:none}
+      @media (max-width:900px){
+        .rail-labels{display:none}
+        .rail-current{
+          display:block; position:absolute; left:13px; top:50%;
+          transform:translateY(-50%); writing-mode:vertical-rl;
+          font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.24em; text-transform:uppercase;
+          color:var(--amber); white-space:nowrap;
+        }
+      }
+      @media (prefers-reduced-motion: reduce){ .scroll-rail{transition:none} }
       body{
         margin:0;
         background:var(--bg);
@@ -204,6 +233,11 @@
       h2{font-family:var(--display); font-weight:700; font-size:clamp(38px,5vw,52px); line-height:1; margin:0; letter-spacing:.01em}
       .sec-meta{font-family:var(--mono); font-size:13px; color:var(--muted-2); white-space:nowrap}
 
+      /* experience-only progress: fills while scrolling through this section;
+         always visible (unlike the left rail) */
+      .exp-progress{height:3px; background:var(--line); margin-top:22px}
+      .exp-progress-fill{height:100%; background:linear-gradient(to right, var(--amber), var(--amber-2)); transform:scaleX(0); transform-origin:0 50%}
+
       /* timeline */
       .timeline{position:relative; margin-top:14px}
       .tl-item{display:grid; grid-template-columns:170px 44px 1fr; padding:30px 0 6px}
@@ -336,7 +370,17 @@
     </style>
   </head>
   <body>
-    <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+    <div class="scroll-rail" id="scrollRail" aria-hidden="true">
+      <div class="rail-track"><div class="rail-fill" id="railFill"></div></div>
+      <div class="rail-labels">
+        <a class="rail-label" data-rail="about" href="#about" tabindex="-1">About</a>
+        <a class="rail-label" data-rail="experience" href="#experience" tabindex="-1">Experience</a>
+        <a class="rail-label" data-rail="certifications" href="#certifications" tabindex="-1">Certifications</a>
+        <a class="rail-label" data-rail="skills" href="#skills" tabindex="-1">Skills</a>
+        <a class="rail-label" data-rail="contact" href="#contact" tabindex="-1">Contact</a>
+      </div>
+      <div class="rail-current" id="railCurrent">Top</div>
+    </div>
     <div class="grid-bg" aria-hidden="true"></div>
     <div class="glow" aria-hidden="true"></div>
     <div class="mouse-spot" id="mouseSpot" aria-hidden="true"></div>
@@ -432,6 +476,7 @@
       <!-- EXPERIENCE -->
       <section class="block" id="experience">
         <div class="sec-head"><h2>Experience</h2><span class="sec-meta">2017 — present</span></div>
+        <div class="exp-progress" aria-hidden="true"><div class="exp-progress-fill" id="expProgressFill"></div></div>
         <div class="timeline">
 
           <article class="tl-item">
@@ -1072,28 +1117,86 @@
         requestAnimationFrame(frame);
       })();
 
-      // ---- Scroll progress bar: fills as you scroll (works on touch, reduced-motion safe) ----
+      // ---- Scroll rail: left-edge page progress + current section ---------------
+      // Fills top-to-bottom with whole-page scroll; the label for the section in
+      // view is highlighted (and shown on its own on small screens). The rail
+      // fades in while scrolling and back out shortly after scrolling stops.
+      // The Experience-only bar is driven from the same handler but its element
+      // lives in the section and stays always visible.
       (function () {
-        var bar = document.getElementById('scrollProgress');
-        if (!bar) return;
+        var rail = document.getElementById('scrollRail');
+        var fill = document.getElementById('railFill');
+        var currentEl = document.getElementById('railCurrent');
+        var expFill = document.getElementById('expProgressFill');
+        if (!rail || !fill) return;
+        var ids = ['about', 'experience', 'certifications', 'skills', 'contact'];
+        var names = { about: 'About', experience: 'Experience', certifications: 'Certifications', skills: 'Skills', contact: 'Contact' };
+        var labels = {};
+        rail.querySelectorAll('.rail-label').forEach(function (a) {
+          labels[a.getAttribute('data-rail')] = a;
+        });
+        var expSection = document.getElementById('experience');
+        var sections = [], docHeight = 0, expTop = 0, expHeight = 0;
+        function measure() {
+          var y = window.scrollY || window.pageYOffset || 0;
+          docHeight = Math.max(
+            document.documentElement.scrollHeight,
+            document.body ? document.body.scrollHeight : 0
+          );
+          sections = ids.map(function (id) {
+            var el = document.getElementById(id);
+            return el ? { id: id, top: el.getBoundingClientRect().top + y } : null;
+          }).filter(Boolean);
+          sections.forEach(function (s) {
+            var label = labels[s.id];
+            if (label && docHeight > 0) {
+              var pct = Math.min(Math.max((s.top / docHeight) * 100, 3), 96);
+              label.style.top = pct + '%';
+            }
+          });
+          if (expSection) {
+            expTop = expSection.getBoundingClientRect().top + y;
+            expHeight = expSection.offsetHeight;
+          }
+        }
+        var hideTimer = null;
+        function poke() {
+          rail.classList.add('visible');
+          if (hideTimer) clearTimeout(hideTimer);
+          hideTimer = setTimeout(function () { rail.classList.remove('visible'); }, 900);
+        }
         var ticking = false;
         function update() {
           ticking = false;
-          var scrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-          var docHeight = Math.max(
-            document.documentElement.scrollHeight,
-            document.body ? document.body.scrollHeight : 0
-          ) - window.innerHeight;
-          var progress = docHeight > 0 ? Math.min(Math.max(scrollTop / docHeight, 0), 1) : 0;
-          bar.style.transform = 'scaleX(' + progress + ')';
+          var y = window.scrollY || window.pageYOffset || 0;
+          var vh = window.innerHeight;
+          var max = docHeight - vh;
+          var progress = max > 0 ? Math.min(Math.max(y / max, 0), 1) : 0;
+          fill.style.transform = 'scaleY(' + progress + ')';
+          // current section: the last one whose top has passed 35% of the viewport
+          var current = null;
+          sections.forEach(function (s) { if (s.top <= y + vh * 0.35) current = s.id; });
+          Object.keys(labels).forEach(function (k) {
+            labels[k].classList.toggle('active', k === current);
+          });
+          if (currentEl) currentEl.textContent = current ? names[current] : 'Top';
+          // experience-only bar: empty as the section enters view, full once past it
+          if (expFill && expHeight > 0) {
+            var ep = (y + vh - expTop) / (expHeight + vh);
+            expFill.style.transform = 'scaleX(' + Math.min(Math.max(ep, 0), 1) + ')';
+          }
         }
         function onScroll() {
+          poke();
           if (!ticking) { ticking = true; requestAnimationFrame(update); }
         }
+        function onResize() { measure(); update(); }
         window.addEventListener('scroll', onScroll, { passive: true });
-        window.addEventListener('resize', onScroll, { passive: true });
-        window.addEventListener('orientationchange', onScroll, { passive: true });
-        window.addEventListener('load', update);
+        window.addEventListener('resize', onResize, { passive: true });
+        window.addEventListener('orientationchange', onResize, { passive: true });
+        window.addEventListener('load', onResize);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize);
+        measure();
         update();
       })();
 
