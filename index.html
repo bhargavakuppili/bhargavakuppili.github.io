@@ -255,13 +255,13 @@
          by the same timeline scroll handler. */
       .tl-sun{
         position:absolute; left:calc(170px + 22px); top:12px;
-        width:56px; height:56px; border-radius:50%;
+        width:48px; height:48px; border-radius:50%;
         transform:translate(-50%, -50%);
         pointer-events:none; z-index:3; opacity:0;
         will-change:transform;
       }
       /* the sun's OWN glow only: a tight corona hugging the disc
-         (26px past its edge), NOT a halo spilling over the content —
+         (22px past its edge), NOT a halo spilling over the content —
          the big faded circular spill that used to sit behind the
          entries is gone entirely. It is also clipped at the disc's
          centre — the timeline line — so no part of it reaches left
@@ -270,7 +270,7 @@
          right-side .tl-light overlay and the per-element proximity
          brightening below. */
       .tl-sun::before{
-        content:""; position:absolute; inset:-26px; border-radius:50%; z-index:-1;
+        content:""; position:absolute; inset:-22px; border-radius:50%; z-index:-1;
         background:radial-gradient(circle, var(--g0) 0%, var(--g1) 52%, transparent 78%);
         clip-path:inset(0 0 0 50%);
         pointer-events:none;
@@ -289,12 +289,27 @@
          stays completely dark. */
       .tl-light{
         position:absolute; inset:0; z-index:2; pointer-events:none;
-        mix-blend-mode:screen;
+        mix-blend-mode:screen; overflow:hidden;
         clip-path:inset(0 0 0 var(--sun-x));
+      }
+      /* the gradient itself lives on this inner layer: a fixed
+         1280px square centred on the sun and moved by TRANSFORM
+         only. It used to be a background on .tl-light itself,
+         positioned via background-position from --sun-y, which
+         forced the browser to repaint and re-blend the whole
+         1280px gradient on the main thread every frame — on
+         phones those dropped frames landed as the sun stepping
+         against the smoothly composited page, and the re-blended
+         glow flickered around it. As a transformed layer the
+         compositor just slides the already-painted gradient:
+         identical stops, identical falloff, identical clip at
+         the line, no per-frame repaint. */
+      .tl-light-core{
+        position:absolute; left:0; top:0; width:1280px; height:1280px;
         background-image:radial-gradient(640px circle at center, var(--o0) 0%, var(--o1) 10%, var(--o2) 22%, var(--o3) 36%, var(--o4) 55%, var(--o5) 76%, transparent 100%);
-        background-size:1280px 1280px;
         background-repeat:no-repeat;
-        background-position:calc(var(--sun-x) - 640px) calc(var(--sun-y) - 640px);
+        transform:translate3d(calc(var(--sun-x) - 640px), calc(var(--sun-y) - 640px), 0);
+        will-change:transform;
       }
       .tl-sun-img{
         display:block; width:100%; height:100%; border-radius:50%;
@@ -323,7 +338,7 @@
         opacity:var(--sun-white, 0);
         pointer-events:none;
       }
-      @media (max-width:700px){ .tl-sun{left:13px; width:46px; height:46px} }
+      @media (max-width:700px){ .tl-sun{left:13px; width:42px; height:42px} }
       /* the job entry at the fill point gets NO background wash of its
          own. The .tl-lit class only kindles that entry's building
          marker; the actual lighting of the words comes from the
@@ -594,7 +609,7 @@
       <section class="block" id="experience">
         <div class="sec-head"><h2>Experience</h2><span class="sec-meta">2017 — present</span></div>
         <div class="timeline">
-          <div class="tl-light" id="tlLight" aria-hidden="true"></div>
+          <div class="tl-light" id="tlLight" aria-hidden="true"><div class="tl-light-core"></div></div>
           <div class="tl-sun" id="tlSun" aria-hidden="true"><img class="tl-sun-img" src="data:image/jpeg;base64,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" alt="" width="256" height="256" /><span class="tl-sun-tint"></span><span class="tl-sun-white"></span></div>
 
           <article class="tl-item">
@@ -1376,25 +1391,45 @@
         // from frame to frame, while the compositor paints the
         // (absolutely positioned) sun at the true visual offset -- so
         // every alternating read landed as a visible step forward,
-        // then back, then forward: a shake. (The per-frame rect read
-        // also forced a layout flush right after the previous frame's
-        // style writes, dropping frames on top of that.) The fix is a
-        // single filtered pipeline on touch:
+        // then back, then forward: a shake. The pipeline below is
+        // built so that NO single noisy read can ever move the sun
+        // backwards while the user is scrolling one way:
         //   * progress is computed from window.scrollY + the cached
         //     document geometry -- no per-frame getBoundingClientRect
         //     whose value can disagree with the composited frame;
         //   * the displayed progress chases the target through a tight
         //     ~40ms exponential filter, which averages the alternating
-        //     stale/fresh reads into steady one-way motion (the fill,
-        //     the sun and the light all use the same displayed value,
-        //     so the effect stays locked together; at rest it settles
-        //     in ~150ms, with no visible lag while scrolling);
-        //   * a deadband snaps the last sub-pixel remainder exactly
-        //     onto the target, so the sun sits perfectly still at rest;
-        //   * a monotonic guard: while the page is actually moving in
-        //     one direction, the displayed progress may not step the
-        //     other way -- a single noisy read can hold the sun for a
-        //     frame, but never push it backwards.
+        //     stale/fresh reads into steady motion (the fill, the sun
+        //     and the light all use the same displayed value, so the
+        //     effect stays locked together);
+        //   * a COMMITTED direction with a hard clamp: the scroll
+        //     direction only counts as reversed once the page has
+        //     travelled a full 16px back past the furthest point
+        //     reached in the committed direction -- far beyond the
+        //     few px of stale/fresh noise -- and until then the
+        //     displayed progress is clamped so it can pause on a
+        //     noisy read but can NEVER step the other way. (The
+        //     earlier guard keyed off the per-frame direction, which
+        //     flips sign along with the noisy reads themselves, so
+        //     it kept letting backward steps through.) The clamp
+        //     releases after ~300ms of stillness, so the sun always
+        //     settles exactly on the target at rest;
+        //   * the cached geometry is only re-measured after the
+        //     scroll position has been stable for ~220ms -- never
+        //     mid-momentum, when a rect read and scrollY can
+        //     disagree and corrupt the cache;
+        //   * refresh() (resize / orientation / load / fonts) no
+        //     longer snaps the sun to the recomputed target: iOS
+        //     fires resize mid-scroll whenever its toolbar collapses
+        //     or expands, and the snap teleported the sun on every
+        //     toggle. The chase now glides it there instead;
+        //   * the light overlay's gradient rides a transform-moved
+        //     layer (.tl-light-core) instead of a repainted
+        //     background-position, and the per-element proximity
+        //     brightening only rewrites when the sun has moved at
+        //     least 2px -- so no per-frame main-thread repaint can
+        //     delay the sun's own transform or make the glow
+        //     flicker around a steady sun.
         // The rAF loop still POLLS every frame while the section is
         // in view, so updates keep coming through iOS momentum
         // scrolling. Desktop / fine-pointer keeps the gentle ~85ms
@@ -1405,6 +1440,7 @@
         var inView = false, renderedP = -2;
         var tlHeight = 0, sunX = 0, docTop = 0, vhCached = 0;
         var lastScrollY = -1, stillMeasured = false;
+        var commitDir = 0, extremeY = 0, lastMoveTs = null, lastLitY = -1;
         var itemCache = [], litCache = [];
         function measure() {
           var tlRect = timeline.getBoundingClientRect();
@@ -1454,22 +1490,40 @@
             // First frame, and reduced-motion: direct 1:1 tracking.
             curP = targetP;
           } else if (IS_TOUCH) {
-            // Touch: tight filtered tracking (see the note above the
-            // state declarations). A ~40ms exponential chase averages
-            // out the alternating stale/fresh scroll reads; the
-            // deadband settles the sun exactly on the target at rest;
-            // and while the page moves one way the displayed progress
-            // may hold for a frame on a noisy read but never step
-            // backwards -- so the sun travels steadily in one
-            // direction with no shaking or oscillation.
+            // Touch: filtered tracking under a COMMITTED direction
+            // (see the note above the state declarations). First the
+            // direction bookkeeping: extremeY is the furthest scroll
+            // position reached in the committed direction, and the
+            // direction only flips once the page has travelled a
+            // full 16px back past that extreme -- far more than the
+            // few px of stale/fresh noise in iOS scroll reads, so
+            // noise alone can never flip it.
+            if (commitDir > 0) {
+              if (yNow > extremeY) extremeY = yNow;
+              else if (yNow < extremeY - 16) { commitDir = -1; extremeY = yNow; }
+            } else if (commitDir < 0) {
+              if (yNow < extremeY) extremeY = yNow;
+              else if (yNow > extremeY + 16) { commitDir = 1; extremeY = yNow; }
+            } else if (yNow > extremeY + 4) { commitDir = 1; extremeY = yNow; }
+            else if (yNow < extremeY - 4) { commitDir = -1; extremeY = yNow; }
+            // The ~40ms exponential chase averages the alternating
+            // stale/fresh reads; its result is then HARD-CLAMPED to
+            // the committed direction: while the page is scrolling
+            // down, the displayed progress may pause on a noisy read
+            // but can never decrease, and vice versa scrolling up.
+            // The sun therefore travels steadily in one direction --
+            // no shaking, no back-and-forth. The deadband snap is
+            // likewise refused when it would step against the
+            // committed direction; the clamp releases at rest
+            // (below), where the snap settles the sun exactly.
             var diffT = targetP - curP;
             if (Math.abs(diffT) < 0.0004) {
-              curP = targetP;
+              if (!((commitDir > 0 && targetP < curP) || (commitDir < 0 && targetP > curP))) curP = targetP;
             } else {
               var kT = 1 - Math.exp(-dt / 40);
               var nextT = curP + diffT * kT;
-              if (dirNow > 0 && nextT < curP) nextT = curP;
-              else if (dirNow < 0 && nextT > curP) nextT = curP;
+              if (commitDir > 0 && nextT < curP) nextT = curP;
+              else if (commitDir < 0 && nextT > curP) nextT = curP;
               curP = nextT;
             }
           } else {
@@ -1484,14 +1538,27 @@
               curP += diff * k;
             }
           }
-          // Once scrolling has come fully to rest, refresh the cached
+          // Once scrolling has truly come to rest, refresh the cached
           // geometry once (fonts, images or the hero typewriter above
           // the timeline may have shifted it since the last measure).
-          // Done only while still, so the rect reads in measure() can
-          // never feed noise back into a moving frame.
+          // "Rest" means the scroll position has not changed for a
+          // full ~220ms: during iOS momentum the JS-visible scrollY
+          // can read unchanged for a frame or two while the page is
+          // still moving, and re-measuring then pairs a live rect
+          // with a stale scrollY, corrupting docTop and jumping the
+          // target -- a shake all by itself. The same stillness
+          // releases the touch direction clamp (~300ms) so the chase
+          // can settle the sun exactly onto the target.
           if (dirNow !== 0) {
+            lastMoveTs = ts;
             stillMeasured = false;
-          } else if (!stillMeasured) {
+          }
+          var stillMs = lastMoveTs == null ? 0 : ts - lastMoveTs;
+          if (IS_TOUCH && commitDir !== 0 && stillMs > 300) {
+            commitDir = 0;
+            extremeY = yNow;
+          }
+          if (!stillMeasured && stillMs > 220) {
             stillMeasured = true;
             measure();
             computeTarget();
@@ -1616,8 +1683,17 @@
             // the light has effectively died and the text keeps its
             // normal dim colour. Values are quantized to 0.02 steps
             // and written only when they change, and elements more
-            // than ~720px away vertically are skipped outright.
+            // than ~720px away vertically are skipped outright. The
+            // whole pass only runs when the sun has moved at least
+            // 2px since the last one: a smaller move changes no
+            // element's brightness by a visible amount, and skipping
+            // the filter writes keeps the frame cheap on phones, so
+            // the sun's own transform never waits on text repaints
+            // (which read as the glow flickering around the sun).
+            var doLit = lastLitY < 0 || Math.abs(fillY - lastLitY) >= 2;
+            if (doLit) lastLitY = fillY;
             litCache.forEach(function (c) {
+              if (!doLit) return;
               var v = 0;
               if (fillY > c.top - 720 && fillY < c.bottom + 720) {
                 var dx = sunX < c.left ? c.left - sunX : (sunX > c.right ? sunX - c.right : 0);
@@ -1631,7 +1707,23 @@
           }
         }
         function onScroll() { computeTarget(); kick(); }
-        function refresh() { measure(); computeTarget(); curP = targetP; renderedP = curP; lastScrollY = window.scrollY || window.pageYOffset || 0; render(curP); }
+        function refresh() {
+          // Re-measure after resize / orientation / load / font load,
+          // but do NOT snap the sun to the new target: iOS Safari
+          // fires resize mid-scroll whenever its toolbar collapses or
+          // expands, and the old snap teleported the sun to the
+          // recomputed target on every toggle -- one more visible
+          // jump while scrolling. Instead the loop is kicked and the
+          // filtered chase glides the sun to the corrected target in
+          // a few frames. The direction commitment is also reset,
+          // since the geometry it was anchored to just changed.
+          measure();
+          computeTarget();
+          lastScrollY = window.scrollY || window.pageYOffset || 0;
+          extremeY = lastScrollY;
+          commitDir = 0;
+          kick();
+        }
         // While the timeline is anywhere near the viewport, keep the
         // polling loop alive so touch momentum scrolling is tracked
         // frame by frame; the generous root margin starts it just
@@ -1660,6 +1752,8 @@
         computeTarget();
         curP = targetP;
         renderedP = curP;
+        lastScrollY = window.scrollY || window.pageYOffset || 0;
+        extremeY = lastScrollY;
         render(curP);
       })();
 
