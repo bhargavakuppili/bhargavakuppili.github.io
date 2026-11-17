@@ -1773,26 +1773,54 @@
         setInterval(tick, 30000);
       })();
 
-      // Highlight the nav item for the section in view.
+      // Highlight the nav item for the section in view. Uses the exact
+      // same scroll-position rule as the left scroll rail (the last
+      // section whose top has passed 35% of the viewport), so the top
+      // nav and the rail can never disagree. The previous
+      // IntersectionObserver version only ever SET an active link when
+      // a section crossed its narrow root-margin band and never
+      // cleared one: jumping straight back to the top (where no
+      // tracked section sits in that band) left the last section —
+      // e.g. Certifications — underlined forever. Here, when no
+      // section has reached the reading line (hero / top of page in
+      // view), current is null and every link is cleared.
       (function () {
         var links = {};
         document.querySelectorAll('nav a[data-nav]').forEach(function (a) {
           links[a.getAttribute('data-nav')] = a;
         });
-        if (!('IntersectionObserver' in window)) return;
-        var obs = new IntersectionObserver(function (entries) {
-          entries.forEach(function (en) {
-            if (en.isIntersecting) {
-              Object.keys(links).forEach(function (k) { links[k].classList.remove('active'); });
-              var link = links[en.target.id];
-              if (link) link.classList.add('active');
-            }
+        var ids = ['about', 'experience', 'certifications', 'skills', 'contact'];
+        var sections = [];
+        function measure() {
+          var y = window.scrollY || window.pageYOffset || 0;
+          sections = ids.map(function (id) {
+            var el = document.getElementById(id);
+            return el ? { id: id, top: el.getBoundingClientRect().top + y } : null;
+          }).filter(Boolean);
+        }
+        var ticking = false;
+        function update() {
+          ticking = false;
+          var y = window.scrollY || window.pageYOffset || 0;
+          var vh = window.innerHeight;
+          // current section: the last one whose top has passed 35% of the viewport
+          var current = null;
+          sections.forEach(function (s) { if (s.top <= y + vh * 0.35) current = s.id; });
+          Object.keys(links).forEach(function (k) {
+            links[k].classList.toggle('active', k === current);
           });
-        }, { rootMargin: '-30% 0px -60% 0px' });
-        ['about', 'experience', 'certifications', 'skills', 'contact'].forEach(function (id) {
-          var s = document.getElementById(id);
-          if (s) obs.observe(s);
-        });
+        }
+        function onScroll() {
+          if (!ticking) { ticking = true; requestAnimationFrame(update); }
+        }
+        function onResize() { measure(); update(); }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onResize, { passive: true });
+        window.addEventListener('orientationchange', onResize, { passive: true });
+        window.addEventListener('load', onResize);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize);
+        measure();
+        update();
       })();
     </script>
   </body>
