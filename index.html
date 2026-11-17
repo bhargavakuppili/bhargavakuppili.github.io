@@ -1314,8 +1314,9 @@
       // point (so the sun sits waiting at the very beginning of the line
       // and is seen there the moment the line comes into view), and 1
       // once the end of the line has crossed it (the sun finishes at the
-      // very end of the line). Positions are measured live from
-      // getBoundingClientRect() on every update, so no stale offset from
+      // very end of the line). The timeline's document-space position is
+      // cached by measure() and re-measured on resize / load / font load
+      // and whenever scrolling comes to rest, so no stale offset from
       // fonts, images or layout shifts can push the sun's start down the
       // line. Driven via the --tl-p custom property consumed by
       // .timeline::after; no extra bar element.
@@ -1358,33 +1359,61 @@
         }
         // ---- Smooth, cached rendering ----------------------------------
         // Geometry is measured once (and re-measured on resize / load /
-        // font load) into timeline-relative caches, so a frame never
-        // needs more than the single getBoundingClientRect in
-        // computeTarget(). The sun moves by transform (compositor-only),
-        // class toggles and per-element --lit writes are skipped unless
-        // the value actually changed, and elements far from the sun are
+        // font load, plus once whenever scrolling comes to rest) into
+        // document-space caches: docTop (the timeline's distance from
+        // the top of the document) and tlHeight. A frame then needs NO
+        // layout reads at all -- progress comes from window.scrollY
+        // alone. The sun moves by transform (compositor-only), class
+        // toggles and per-element --lit writes are skipped unless the
+        // value actually changed, and elements far from the sun are
         // rejected with one comparison.
         //
-        // Touch vs. fine pointer: the ~85ms easing used on desktop made
-        // the sun trail behind the scroll on phones and then catch up,
-        // which reads as jumping -- especially on iOS Safari, where
-        // scroll events are throttled and pause during momentum /
-        // flick scrolling. So on touch devices there is NO easing:
-        // the sun follows the scroll position directly (1:1, in
-        // lockstep with the page). And while the Experience section
-        // is in view, a continuous rAF loop POLLS the scroll position
-        // every frame (computeTarget() at the top of frame()) instead
-        // of relying on scroll events alone, so updates keep coming
-        // through iOS momentum scrolling. Desktop / fine-pointer keeps
-        // the gentle easing that already passed its check.
+        // Why the sun used to VIBRATE on phones: the old touch path
+        // read getBoundingClientRect() live every frame and mapped it
+        // straight onto the sun, 1:1 and completely unfiltered. On iOS
+        // the main thread's view of the scroll position during
+        // momentum scrolling alternates between stale and fresh values
+        // from frame to frame, while the compositor paints the
+        // (absolutely positioned) sun at the true visual offset -- so
+        // every alternating read landed as a visible step forward,
+        // then back, then forward: a shake. (The per-frame rect read
+        // also forced a layout flush right after the previous frame's
+        // style writes, dropping frames on top of that.) The fix is a
+        // single filtered pipeline on touch:
+        //   * progress is computed from window.scrollY + the cached
+        //     document geometry -- no per-frame getBoundingClientRect
+        //     whose value can disagree with the composited frame;
+        //   * the displayed progress chases the target through a tight
+        //     ~40ms exponential filter, which averages the alternating
+        //     stale/fresh reads into steady one-way motion (the fill,
+        //     the sun and the light all use the same displayed value,
+        //     so the effect stays locked together; at rest it settles
+        //     in ~150ms, with no visible lag while scrolling);
+        //   * a deadband snaps the last sub-pixel remainder exactly
+        //     onto the target, so the sun sits perfectly still at rest;
+        //   * a monotonic guard: while the page is actually moving in
+        //     one direction, the displayed progress may not step the
+        //     other way -- a single noisy read can hold the sun for a
+        //     frame, but never push it backwards.
+        // The rAF loop still POLLS every frame while the section is
+        // in view, so updates keep coming through iOS momentum
+        // scrolling. Desktop / fine-pointer keeps the gentle ~85ms
+        // easing that already passed its check, and reduced-motion
+        // keeps direct 1:1 tracking.
         var IS_TOUCH = (window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches) || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         var targetP = 0, curP = -1, rafRunning = false, lastTs = null, sunShown = false;
         var inView = false, renderedP = -2;
-        var tlHeight = 0, sunX = 0;
+        var tlHeight = 0, sunX = 0, docTop = 0, vhCached = 0;
+        var lastScrollY = -1, stillMeasured = false;
         var itemCache = [], litCache = [];
         function measure() {
           var tlRect = timeline.getBoundingClientRect();
           tlHeight = tlRect.height;
+          vhCached = window.innerHeight || 0;
+          // Document-space top of the timeline: rect.top is viewport-
+          // relative, so add the current scroll offset. The result is
+          // scroll-invariant, which is what makes it safe to cache.
+          docTop = tlRect.top + (window.scrollY || window.pageYOffset || 0);
           if (sun) sunX = sun.offsetLeft;
           itemCache = items.map(function (el) {
             var r = el.getBoundingClientRect();
@@ -1396,10 +1425,16 @@
           });
         }
         function computeTarget() {
-          var vh = window.innerHeight || 0;
-          var tlRect = timeline.getBoundingClientRect();
-          var h = tlRect.height || tlHeight;
-          var p = h > 0 ? (vh * 0.5 - tlRect.top) / h : 0;
+          // Same reading-point math as before -- progress is 0 while
+          // the top of the line is below the middle of the viewport
+          // and 1 once the end of the line has crossed it -- but from
+          // window.scrollY and the cached document geometry instead
+          // of a live getBoundingClientRect. Since rect.top + scrollY
+          // is exactly docTop, the value is identical; it just removes
+          // the per-frame layout read whose stale/fresh alternation
+          // fed the vibration.
+          var y = window.scrollY || window.pageYOffset || 0;
+          var p = tlHeight > 0 ? (y + vhCached * 0.5 - docTop) / tlHeight : 0;
           targetP = Math.min(Math.max(p, 0), 1);
         }
         function frame(ts) {
@@ -1410,10 +1445,33 @@
           // keeps the sun moving during iOS momentum scrolling, when
           // scroll events may not fire for many frames at a time.
           computeTarget();
-          if (IS_TOUCH || REDUCED) {
-            // Direct 1:1 tracking on touch: no target, no easing, no
-            // lag behind the scroll and no catching-up jump.
+          // Which way is the page itself moving this frame? Feeds the
+          // touch filter's monotonic guard below.
+          var yNow = window.scrollY || window.pageYOffset || 0;
+          var dirNow = lastScrollY < 0 ? 0 : (yNow > lastScrollY ? 1 : (yNow < lastScrollY ? -1 : 0));
+          lastScrollY = yNow;
+          if (curP < 0 || REDUCED) {
+            // First frame, and reduced-motion: direct 1:1 tracking.
             curP = targetP;
+          } else if (IS_TOUCH) {
+            // Touch: tight filtered tracking (see the note above the
+            // state declarations). A ~40ms exponential chase averages
+            // out the alternating stale/fresh scroll reads; the
+            // deadband settles the sun exactly on the target at rest;
+            // and while the page moves one way the displayed progress
+            // may hold for a frame on a noisy read but never step
+            // backwards -- so the sun travels steadily in one
+            // direction with no shaking or oscillation.
+            var diffT = targetP - curP;
+            if (Math.abs(diffT) < 0.0004) {
+              curP = targetP;
+            } else {
+              var kT = 1 - Math.exp(-dt / 40);
+              var nextT = curP + diffT * kT;
+              if (dirNow > 0 && nextT < curP) nextT = curP;
+              else if (dirNow < 0 && nextT > curP) nextT = curP;
+              curP = nextT;
+            }
           } else {
             var diff = targetP - curP;
             if (Math.abs(diff) < 0.0004) {
@@ -1425,6 +1483,18 @@
               var k = 1 - Math.exp(-dt / 85);
               curP += diff * k;
             }
+          }
+          // Once scrolling has come fully to rest, refresh the cached
+          // geometry once (fonts, images or the hero typewriter above
+          // the timeline may have shifted it since the last measure).
+          // Done only while still, so the rect reads in measure() can
+          // never feed noise back into a moving frame.
+          if (dirNow !== 0) {
+            stillMeasured = false;
+          } else if (!stillMeasured) {
+            stillMeasured = true;
+            measure();
+            computeTarget();
           }
           // Render only when the progress actually changed, so the
           // polling loop costs almost nothing while the page is still.
@@ -1446,8 +1516,8 @@
           if (!rafRunning) { rafRunning = true; lastTs = null; requestAnimationFrame(frame); }
         }
         function render(p) {
-          // p is the displayed progress from the loop above (direct
-          // 1:1 on touch, eased on fine pointer). The
+          // p is the displayed progress from the loop above (tightly
+          // filtered on touch, eased on fine pointer). The
           // reading point behind it is the middle of the viewport:
           // the target stays 0 while the top of the line is below
           // that point (the sun sits at the very beginning of the
@@ -1561,7 +1631,7 @@
           }
         }
         function onScroll() { computeTarget(); kick(); }
-        function refresh() { measure(); computeTarget(); curP = targetP; renderedP = curP; render(curP); }
+        function refresh() { measure(); computeTarget(); curP = targetP; renderedP = curP; lastScrollY = window.scrollY || window.pageYOffset || 0; render(curP); }
         // While the timeline is anywhere near the viewport, keep the
         // polling loop alive so touch momentum scrolling is tracked
         // frame by frame; the generous root margin starts it just
