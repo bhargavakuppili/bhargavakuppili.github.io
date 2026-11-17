@@ -1357,22 +1357,29 @@
           };
         }
         // ---- Smooth, cached rendering ----------------------------------
-        // The previous handler recomputed geometry for the timeline,
-        // every entry and every lit text element (50+
-        // getBoundingClientRect calls) and rewrote styles on all of
-        // them on every scroll frame, and it moved the sun by
-        // rewriting its `top` -- main-thread layout work that made
-        // scrolling through the section stutter and the sun jump
-        // between wheel steps. Now geometry is measured once (and
-        // re-measured on resize / load / font load) into
-        // timeline-relative caches, scrolling only updates a target
-        // progress, and a rAF loop eases the displayed progress
-        // toward that target so the sun, the fill and the lighting
-        // glide continuously. The sun moves by transform
-        // (compositor-only), class toggles and per-element --lit
-        // writes are skipped unless the value actually changed, and
-        // elements far from the sun are rejected with one comparison.
+        // Geometry is measured once (and re-measured on resize / load /
+        // font load) into timeline-relative caches, so a frame never
+        // needs more than the single getBoundingClientRect in
+        // computeTarget(). The sun moves by transform (compositor-only),
+        // class toggles and per-element --lit writes are skipped unless
+        // the value actually changed, and elements far from the sun are
+        // rejected with one comparison.
+        //
+        // Touch vs. fine pointer: the ~85ms easing used on desktop made
+        // the sun trail behind the scroll on phones and then catch up,
+        // which reads as jumping -- especially on iOS Safari, where
+        // scroll events are throttled and pause during momentum /
+        // flick scrolling. So on touch devices there is NO easing:
+        // the sun follows the scroll position directly (1:1, in
+        // lockstep with the page). And while the Experience section
+        // is in view, a continuous rAF loop POLLS the scroll position
+        // every frame (computeTarget() at the top of frame()) instead
+        // of relying on scroll events alone, so updates keep coming
+        // through iOS momentum scrolling. Desktop / fine-pointer keeps
+        // the gentle easing that already passed its check.
+        var IS_TOUCH = (window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches) || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         var targetP = 0, curP = -1, rafRunning = false, lastTs = null, sunShown = false;
+        var inView = false, renderedP = -2;
         var tlHeight = 0, sunX = 0;
         var itemCache = [], litCache = [];
         function measure() {
@@ -1399,25 +1406,48 @@
           if (lastTs == null) lastTs = ts;
           var dt = Math.min(Math.max(ts - lastTs, 1), 64);
           lastTs = ts;
-          var diff = targetP - curP;
-          if (Math.abs(diff) < 0.0004) {
+          // Poll the live scroll position EVERY frame. This is what
+          // keeps the sun moving during iOS momentum scrolling, when
+          // scroll events may not fire for many frames at a time.
+          computeTarget();
+          if (IS_TOUCH || REDUCED) {
+            // Direct 1:1 tracking on touch: no target, no easing, no
+            // lag behind the scroll and no catching-up jump.
             curP = targetP;
-            render(curP);
-            rafRunning = false; lastTs = null;
-            return;
+          } else {
+            var diff = targetP - curP;
+            if (Math.abs(diff) < 0.0004) {
+              curP = targetP;
+            } else {
+              // ~85ms time constant (fine pointer only): fast enough
+              // to track the scroll, slow enough to iron out the
+              // steps between wheel ticks.
+              var k = 1 - Math.exp(-dt / 85);
+              curP += diff * k;
+            }
           }
-          // ~85ms time constant: fast enough to track the scroll,
-          // slow enough to iron out the steps between wheel ticks.
-          var k = 1 - Math.exp(-dt / 85);
-          curP += diff * k;
-          render(curP);
-          requestAnimationFrame(frame);
+          // Render only when the progress actually changed, so the
+          // polling loop costs almost nothing while the page is still.
+          if (renderedP === -2 || Math.abs(curP - renderedP) > 0.00005) {
+            renderedP = curP;
+            render(curP);
+          }
+          // Keep polling while the section is in view (momentum can
+          // start or continue without any scroll event), or until a
+          // fine-pointer ease has settled. Otherwise stop the loop.
+          var settled = Math.abs(targetP - curP) < 0.0004;
+          if (inView || !settled) {
+            requestAnimationFrame(frame);
+          } else {
+            rafRunning = false; lastTs = null;
+          }
         }
         function kick() {
           if (!rafRunning) { rafRunning = true; lastTs = null; requestAnimationFrame(frame); }
         }
         function render(p) {
-          // p is the SMOOTHED progress from the loop above. The
+          // p is the displayed progress from the loop above (direct
+          // 1:1 on touch, eased on fine pointer). The
           // reading point behind it is the middle of the viewport:
           // the target stays 0 while the top of the line is below
           // that point (the sun sits at the very beginning of the
@@ -1531,8 +1561,27 @@
           }
         }
         function onScroll() { computeTarget(); kick(); }
-        function refresh() { measure(); computeTarget(); curP = targetP; render(curP); }
+        function refresh() { measure(); computeTarget(); curP = targetP; renderedP = curP; render(curP); }
+        // While the timeline is anywhere near the viewport, keep the
+        // polling loop alive so touch momentum scrolling is tracked
+        // frame by frame; the generous root margin starts it just
+        // before the section arrives and keeps it running just past.
+        if ('IntersectionObserver' in window) {
+          new IntersectionObserver(function (entries) {
+            inView = entries[0].isIntersecting;
+            if (inView) kick();
+          }, { rootMargin: '30% 0px 30% 0px', threshold: 0 }).observe(timeline);
+        } else {
+          // No observer: fall back to scroll/touch-driven kicks; the
+          // direct 1:1 mode settles instantly, so each event renders
+          // the sun exactly at the current scroll position.
+          inView = false;
+        }
         window.addEventListener('scroll', onScroll, { passive: true });
+        // Touch gestures are another chance to (re)start the loop
+        // before momentum takes over on iOS.
+        window.addEventListener('touchstart', kick, { passive: true });
+        window.addEventListener('touchmove', kick, { passive: true });
         window.addEventListener('resize', refresh, { passive: true });
         window.addEventListener('orientationchange', refresh, { passive: true });
         window.addEventListener('load', refresh);
@@ -1540,6 +1589,7 @@
         measure();
         computeTarget();
         curP = targetP;
+        renderedP = curP;
         render(curP);
       })();
 
