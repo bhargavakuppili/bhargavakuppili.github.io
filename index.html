@@ -258,6 +258,7 @@
         width:56px; height:56px; border-radius:50%;
         transform:translate(-50%, -50%);
         pointer-events:none; z-index:3; opacity:0;
+        will-change:transform;
       }
       /* the sun's OWN glow only: a tight corona hugging the disc
          (26px past its edge), NOT a halo spilling over the content —
@@ -290,7 +291,10 @@
         position:absolute; inset:0; z-index:2; pointer-events:none;
         mix-blend-mode:screen;
         clip-path:inset(0 0 0 var(--sun-x));
-        background:radial-gradient(640px circle at var(--sun-x) var(--sun-y), var(--o0) 0%, var(--o1) 10%, var(--o2) 22%, var(--o3) 36%, var(--o4) 55%, var(--o5) 76%, transparent 100%);
+        background-image:radial-gradient(640px circle at center, var(--o0) 0%, var(--o1) 10%, var(--o2) 22%, var(--o3) 36%, var(--o4) 55%, var(--o5) 76%, transparent 100%);
+        background-size:1280px 1280px;
+        background-repeat:no-repeat;
+        background-position:calc(var(--sun-x) - 640px) calc(var(--sun-y) - 640px);
       }
       .tl-sun-img{
         display:block; width:100%; height:100%; border-radius:50%;
@@ -306,10 +310,13 @@
          brightness/saturation filter alone cannot wash that out —
          the disc kept reading golden at midday. This plain white
          layer sits over the photo, screen-blended so it lifts the
-         disc toward pure white, and its opacity (--sun-white, set
+         disc toward white, and its opacity (--sun-white, set
          by the scroll handler) peaks at midday and falls to zero at
-         sunrise/sunset, where the warm tints take over again. A
-         whisper of the photo's texture still shows through. */
+         sunrise/sunset, where the warm tints take over again. The
+         peak is deliberately modest (0.34): at the old 0.82 the disc
+         blew out to featureless pure white at noon; now it reads
+         bright and pale while the photo's surface texture still
+         shows through. */
       .tl-sun-white{
         position:absolute; inset:0; border-radius:50%;
         background:#fff; mix-blend-mode:screen;
@@ -1110,6 +1117,7 @@
           if (!ticking) { ticking = true; requestAnimationFrame(update); }
         }, { passive: true });
         update();
+
       })();
 
       // ---- Hero particle field: lightweight network of nodes --------------------
@@ -1322,13 +1330,12 @@
         // on the RIGHT of the timeline line. Dates are excluded on
         // purpose: they sit left of the line and must stay dark.
         var litTargets = Array.prototype.slice.call(timeline.querySelectorAll('.tl-body h3, .tl-role, .tl-body li'));
-        var ticking = false;
         // Day-cycle keyframes for the sun: sunrise (p=0) warm orange-gold,
-        // midday (p=0.5) pure-white daylight, sunset (p=1) strong red.
+        // midday (p=0.5) bright pale daylight, sunset (p=1) strong red.
         // Colours are interpolated smoothly between stops.
         var DAY_STOPS = [
           { p: 0,   core: [255, 237, 176], mid: [255, 179, 71],  edge: [255, 123, 28],  glow: [255, 140, 40],  filt: [0.94, 1.15, -8, 0.22] },
-          { p: 0.5, core: [255, 255, 255], mid: [255, 255, 252], edge: [255, 255, 238], glow: [255, 255, 232], filt: [1.9, 0.16, 0, 0] },
+          { p: 0.5, core: [255, 255, 255], mid: [255, 255, 252], edge: [255, 255, 238], glow: [255, 255, 232], filt: [1.32, 0.55, 0, 0] },
           { p: 1,   core: [255, 176, 148], mid: [255, 52, 26],   edge: [204, 0, 0],     glow: [224, 18, 8],    filt: [0.84, 1.48, -28, 0.38] }
         ];
         function lerp(a, b, t) { return a + (b - a) * t; }
@@ -1349,28 +1356,74 @@
             filt: a.filt.map(function (v, i) { return lerp(v, b.filt[i], t); })
           };
         }
-        function update() {
-          ticking = false;
-          var vh = window.innerHeight || 0;
-          // Live geometry, measured fresh on every update: the timeline's
-          // position in the viewport right now. (The previous version
-          // cached the line's document offset at load and anchored
-          // progress to the viewport's bottom edge over a
-          // line-height-plus-viewport distance — by the time the line was
-          // actually on screen the fill, and the sun on its tip, had
-          // already travelled hundreds of pixels down the line, so the
-          // sun first appeared around the midpoint of the first entry.)
+        // ---- Smooth, cached rendering ----------------------------------
+        // The previous handler recomputed geometry for the timeline,
+        // every entry and every lit text element (50+
+        // getBoundingClientRect calls) and rewrote styles on all of
+        // them on every scroll frame, and it moved the sun by
+        // rewriting its `top` -- main-thread layout work that made
+        // scrolling through the section stutter and the sun jump
+        // between wheel steps. Now geometry is measured once (and
+        // re-measured on resize / load / font load) into
+        // timeline-relative caches, scrolling only updates a target
+        // progress, and a rAF loop eases the displayed progress
+        // toward that target so the sun, the fill and the lighting
+        // glide continuously. The sun moves by transform
+        // (compositor-only), class toggles and per-element --lit
+        // writes are skipped unless the value actually changed, and
+        // elements far from the sun are rejected with one comparison.
+        var targetP = 0, curP = -1, rafRunning = false, lastTs = null, sunShown = false;
+        var tlHeight = 0, sunX = 0;
+        var itemCache = [], litCache = [];
+        function measure() {
           var tlRect = timeline.getBoundingClientRect();
-          var tlHeight = tlRect.height;
-          // The reading point is the middle of the viewport. The sun
-          // rises at the very start of the line: p stays 0 while the top
-          // of the line is below the reading point, so the sun is sitting
-          // at the top of the line as the Experience section comes into
-          // view. It then travels the whole line, reaching the very end
-          // (p=1) exactly when the end of the line crosses the reading
-          // point, and stays there as the section scrolls away.
-          var p = tlHeight > 0 ? (vh * 0.5 - tlRect.top) / tlHeight : 0;
-          p = Math.min(Math.max(p, 0), 1);
+          tlHeight = tlRect.height;
+          if (sun) sunX = sun.offsetLeft;
+          itemCache = items.map(function (el) {
+            var r = el.getBoundingClientRect();
+            return { el: el, top: r.top - tlRect.top, bottom: r.bottom - tlRect.top, lit: null, passed: null };
+          });
+          litCache = litTargets.map(function (el) {
+            var r = el.getBoundingClientRect();
+            return { el: el, left: r.left - tlRect.left, right: r.right - tlRect.left, top: r.top - tlRect.top, bottom: r.bottom - tlRect.top, last: -1 };
+          });
+        }
+        function computeTarget() {
+          var vh = window.innerHeight || 0;
+          var tlRect = timeline.getBoundingClientRect();
+          var h = tlRect.height || tlHeight;
+          var p = h > 0 ? (vh * 0.5 - tlRect.top) / h : 0;
+          targetP = Math.min(Math.max(p, 0), 1);
+        }
+        function frame(ts) {
+          if (lastTs == null) lastTs = ts;
+          var dt = Math.min(Math.max(ts - lastTs, 1), 64);
+          lastTs = ts;
+          var diff = targetP - curP;
+          if (Math.abs(diff) < 0.0004) {
+            curP = targetP;
+            render(curP);
+            rafRunning = false; lastTs = null;
+            return;
+          }
+          // ~85ms time constant: fast enough to track the scroll,
+          // slow enough to iron out the steps between wheel ticks.
+          var k = 1 - Math.exp(-dt / 85);
+          curP += diff * k;
+          render(curP);
+          requestAnimationFrame(frame);
+        }
+        function kick() {
+          if (!rafRunning) { rafRunning = true; lastTs = null; requestAnimationFrame(frame); }
+        }
+        function render(p) {
+          // p is the SMOOTHED progress from the loop above. The
+          // reading point behind it is the middle of the viewport:
+          // the target stays 0 while the top of the line is below
+          // that point (the sun sits at the very beginning of the
+          // line as the section comes into view) and reaches 1
+          // exactly when the end of the line crosses it (the sun
+          // finishes at the very end of the line).
           timeline.style.setProperty('--tl-p', p.toFixed(4));
           // Sunlight follows a full day as the fill travels: the sun rises
           // at the top of the timeline and sets at the bottom. Brightness
@@ -1385,20 +1438,23 @@
           // sunrise/sunset, plus a soft-light tint wash in the phase colour.
           timeline.style.setProperty('--sun-filter', 'brightness(' + day.filt[0].toFixed(3) + ') saturate(' + day.filt[1].toFixed(3) + ') hue-rotate(' + day.filt[2].toFixed(1) + 'deg) sepia(' + day.filt[3].toFixed(3) + ')');
           timeline.style.setProperty('--sun-tint', rgbaStr(day.glow, (0.26 + 0.12 * daylight).toFixed(3)));
-          // Midday whitening of the DISC itself: the filter above only
-          // desaturates the gold NASA photo so far — the disc kept
-          // reading golden at midday. --sun-white drives a plain white
-          // screen-blended layer over the photo; it peaks at midday
-          // (daylight^1.4 keeps it out of the sunrise/sunset ends) and
-          // is zero at both ends, where the warm tints rule.
-          timeline.style.setProperty('--sun-white', (Math.pow(daylight, 1.4) * 0.82).toFixed(3));
+          // Midday whitening of the DISC itself: --sun-white drives a
+          // plain white screen-blended layer over the photo. Its peak
+          // is dialed back from 0.82 to 0.34 -- at 0.82 the disc blew
+          // out to featureless pure white at midday with no surface
+          // texture left; at 0.34 (with the gentler midday filter
+          // above) the disc still reads bright and pale at noon but
+          // the NASA photo's surface detail shows through again. This
+          // touches ONLY the disc: the light falling on the section
+          // (the --o* overlay and --g* corona below) is unchanged.
+          timeline.style.setProperty('--sun-white', (Math.pow(daylight, 1.4) * 0.34).toFixed(3));
           // Realistic light falloff, two layers sharing one curve whose
           // alpha steps shrink toward zero (roughly inverse-square), so
           // the light dies out long before any gradient boundary:
           // --g* now drives ONLY the sun's own tight corona (clipped at
           // the line, nothing spills left or over the content), --o* is
           // the screen-blended light that lands ON the content to the
-          // RIGHT of the line only — .tl-light is clipped at --sun-x
+          // RIGHT of the line only -- .tl-light is clipped at --sun-x
           // (hot near-white core warming to the phase colour at
           // distance). Nothing lights anything left of the line.
           var ll = 0.55 + 0.45 * daylight;
@@ -1422,69 +1478,69 @@
           // The sun rides the fill point of the timeline line (the
           // ::after spans top:12 to bottom:12 of the timeline, so the
           // fill tip sits at 12 + p * (height - 24) in timeline coords).
-          // The sun is visible for the whole journey — at the very beginning
-          // of the line at p=0 and at the very end at p=1 — with no fade-in
+          // The sun is visible for the whole journey -- at the very beginning
+          // of the line at p=0 and at the very end at p=1 -- with no fade-in
           // or fade-out trimming its travel. Only the single entry under
           // the tip is lit (via .tl-lit below); there is no section-wide
-          // glow — the rest of the Experience block stays dark. Each job's
+          // glow -- the rest of the Experience block stays dark. Each job's
           // building icon appears once the sun has passed it.
           if (sun) {
             var fillY = 12 + p * Math.max(tlHeight - 24, 0);
-            // The sun rides the same fill point, centered on the line —
-            // slightly larger and fuller at midday, lower and warmer at
-            // sunrise/sunset via the colour cycle above.
-            if (sun) {
-              sun.style.top = fillY.toFixed(1) + 'px';
-              sun.style.opacity = '1';
-              var sunScale = 0.92 + 0.16 * daylight;
-              sun.style.transform = 'translate(-50%, -50%) scale(' + sunScale.toFixed(3) + ')';
-            }
-            // The sun's viewport position, compared against each entry's
-            // live viewport position: the entry under the sun is lit, and
-            // each job's building icon (at the start of its company name,
-            // ~44px below the entry's top — padding + heading centre)
-            // shows up once the sun has travelled past it.
-            var sunViewY = tlRect.top + fillY;
-            items.forEach(function (el) {
-              var r = el.getBoundingClientRect();
-              el.classList.toggle('tl-lit', sunViewY >= r.top && sunViewY < r.bottom);
-              el.classList.toggle('tl-passed', sunViewY >= r.top + 44);
-            });
+            if (!sunShown) { sun.style.opacity = '1'; sunShown = true; }
+            // Move by transform only (translateY from the resting
+            // top:12px position): no layout, no paint of the disc
+            // itself beyond the compositor.
+            var sunScale = 0.92 + 0.16 * daylight;
+            sun.style.transform = 'translate(-50%, -50%) translateY(' + (fillY - 12).toFixed(1) + 'px) scale(' + sunScale.toFixed(3) + ')';
             // Position the content-light overlay (.tl-light) exactly on
             // the sun: --sun-x is the line's centre within the timeline
-            // (the sun's own offsetLeft), --sun-y the fill point.
-            var sunX = sun.offsetLeft;
+            // (cached at measure time), --sun-y the fill point.
             timeline.style.setProperty('--sun-x', sunX + 'px');
             timeline.style.setProperty('--sun-y', fillY.toFixed(1) + 'px');
+            // The entry under the sun is lit, and each job's building
+            // icon (at the start of its company name, ~44px below the
+            // entry's top) shows up once the sun has travelled past
+            // it -- all from cached timeline-relative geometry, with
+            // class toggles only when the state actually flips.
+            itemCache.forEach(function (c) {
+              var lit = fillY >= c.top && fillY < c.bottom;
+              if (lit !== c.lit) { c.lit = lit; c.el.classList.toggle('tl-lit', lit); }
+              var passed = fillY >= c.top + 44;
+              if (passed !== c.passed) { c.passed = passed; c.el.classList.toggle('tl-passed', passed); }
+            });
             // Proximity lighting on the words themselves: each text
-            // element gets --lit from its real distance to the sun —
+            // element gets --lit from its real distance to the sun --
             // the gap to its nearest edge, run through an
             // inverse-square-style falloff 1/(1+(d/175)^2). Text the
             // sun is touching flares bright; a few hundred pixels away
             // the light has effectively died and the text keeps its
-            // normal dim colour. Nothing is tinted behind the text —
-            // the glyphs themselves brighten and fade with distance.
-            var sunViewX = tlRect.left + sunX;
-            litTargets.forEach(function (el) {
-              var r = el.getBoundingClientRect();
-              var dx = sunViewX < r.left ? r.left - sunViewX : (sunViewX > r.right ? sunViewX - r.right : 0);
-              var dy = sunViewY < r.top ? r.top - sunViewY : (sunViewY > r.bottom ? sunViewY - r.bottom : 0);
-              var d = Math.sqrt(dx * dx + dy * dy);
-              var v = 0.92 / (1 + Math.pow(d / 175, 2));
-              el.style.setProperty('--lit', v.toFixed(3));
+            // normal dim colour. Values are quantized to 0.02 steps
+            // and written only when they change, and elements more
+            // than ~720px away vertically are skipped outright.
+            litCache.forEach(function (c) {
+              var v = 0;
+              if (fillY > c.top - 720 && fillY < c.bottom + 720) {
+                var dx = sunX < c.left ? c.left - sunX : (sunX > c.right ? sunX - c.right : 0);
+                var dy = fillY < c.top ? c.top - fillY : (fillY > c.bottom ? fillY - c.bottom : 0);
+                var d = Math.sqrt(dx * dx + dy * dy);
+                v = 0.92 / (1 + Math.pow(d / 175, 2));
+              }
+              var q = Math.round(v * 50) / 50;
+              if (q !== c.last) { c.last = q; c.el.style.setProperty('--lit', q.toFixed(2)); }
             });
           }
         }
-        function onScroll() {
-          if (!ticking) { ticking = true; requestAnimationFrame(update); }
-        }
-        function onResize() { update(); }
+        function onScroll() { computeTarget(); kick(); }
+        function refresh() { measure(); computeTarget(); curP = targetP; render(curP); }
         window.addEventListener('scroll', onScroll, { passive: true });
-        window.addEventListener('resize', onResize, { passive: true });
-        window.addEventListener('orientationchange', onResize, { passive: true });
-        window.addEventListener('load', onResize);
-        if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize);
-        update();
+        window.addEventListener('resize', refresh, { passive: true });
+        window.addEventListener('orientationchange', refresh, { passive: true });
+        window.addEventListener('load', refresh);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
+        measure();
+        computeTarget();
+        curP = targetP;
+        render(curP);
       })();
 
       // Live Alpharetta (Eastern) clock in the header, like the reference's local-time readout.
